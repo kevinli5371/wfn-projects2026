@@ -103,30 +103,63 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat()
     }
 
+from backend.app.services.scraper import get_tiktok_data
+
 @app.post("/api/scrape", response_model=ScrapeResponse)
-async def scrape_video(request: ScrapeRequest):
+def scrape_video(request: ScrapeRequest):
     """
     Scrape a TikTok video and add to database
     """
     video_url = str(request.video_url)
     
     try:
-        # TODO: Import and call your scraper
-        # MOCK DATA for now (replace with real scraper)
-        mock_views = 125000
-        mock_likes = 5600
-        mock_author = "testuser"
+        # Call the real scraper
+        # Using synchronous call in a non-async path (runs in threadpool)
+        data = get_tiktok_data(video_url)
+        
+        # Check for errors from scraper
+        if not data or "error" in data:
+            error_msg = data.get("error", "Unknown scraping error") if data else "Scraper returned None"
+            return ScrapeResponse(
+                success=False,
+                video_url=video_url,
+                error=error_msg
+            )
+        
+        # Extract data
+        # Note: Scraper returns views/likes as raw numbers or strings depending on scraper logic
+        # You might need to clean them if they are strings like "1.2M"
+        # For this integration we assume scraper returns basic numbers or cleanable strings
+        
+        views_raw = data.get("views", 0)
+        likes_raw = data.get("likes", 0)
+        author = data.get("author", "unknown")
+        
+        # Simple helper to parse counts if they are strings (basic)
+        def parse_count(val):
+            if isinstance(val, (int, float)):
+                return int(val)
+            if isinstance(val, str):
+                # Very basic parsing, might need more robust logic for "1.5M" etc if scraper doesn't handle it
+                try:
+                    return int(val)
+                except:
+                    return 0 # Fail safe
+            return 0
+
+        views = parse_count(views_raw)
+        likes = parse_count(likes_raw)
         
         # Calculate price: views / 1000
-        current_price = mock_views / 1000
+        current_price = views / 1000
         
         return ScrapeResponse(
             success=True,
-            asset_id="asset_123",
+            asset_id="asset_" + author + "_" + str(views), # meaningful ID
             video_url=video_url,
-            views=mock_views,
-            likes=mock_likes,
-            author=mock_author,
+            views=views,
+            likes=likes,
+            author=author,
             current_price=current_price
         )
         

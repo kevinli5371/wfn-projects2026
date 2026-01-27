@@ -3,6 +3,7 @@ export interface Investment {
     username: string;
     investedAt: string;
     thumbnail: string;
+    videoUrl: string;
     viewsOnInvestment: number;
     likesOnInvestment: number;
     currentViews: number;
@@ -33,6 +34,7 @@ export const mockPortfolio: UserPortfolio = {
             username: '@flyingchicken',
             investedAt: 'a week ago',
             thumbnail: 'https://picsum.photos/seed/1/200/300',
+            videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-white-dress-dancing-in-nature-42999-large.mp4',
             viewsOnInvestment: 738,
             likesOnInvestment: 125000,
             currentViews: 300000,
@@ -44,6 +46,7 @@ export const mockPortfolio: UserPortfolio = {
             username: '@streetseagull_6767',
             investedAt: 'a month ago',
             thumbnail: 'https://picsum.photos/seed/2/200/300',
+            videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-42875-large.mp4',
             viewsOnInvestment: 297000,
             likesOnInvestment: 891,
             currentViews: 11000,
@@ -55,6 +58,7 @@ export const mockPortfolio: UserPortfolio = {
             username: '@flyingchicken',
             investedAt: '2 days ago',
             thumbnail: 'https://picsum.photos/seed/3/200/300',
+            videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-skating-42959-large.mp4',
             viewsOnInvestment: 893,
             likesOnInvestment: 23,
             currentViews: 1067,
@@ -66,6 +70,7 @@ export const mockPortfolio: UserPortfolio = {
             username: '@flyingchicken',
             investedAt: '3 months ago',
             thumbnail: 'https://picsum.photos/seed/4/200/300',
+            videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-man-dancing-on-the-street-42981-large.mp4',
             viewsOnInvestment: 7890,
             likesOnInvestment: 345,
             currentViews: 18000,

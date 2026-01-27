@@ -8,11 +8,13 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PerformanceChart from '@/components/PerformanceChart';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
-import { mockPortfolio, chartData } from '@/constants/mockData';
+import TikTokVideoPlayer from '@/components/TikTokVideoPlayer';
+import { mockPortfolio, chartData, Investment } from '@/constants/mockData';
 
 type TimePeriod = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
 type SortOption = 'performance' | 'recent' | 'value';
@@ -20,10 +22,14 @@ type SortOption = 'performance' | 'recent' | 'value';
 export default function PortfolioScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
   const [sortBy, setSortBy] = useState<SortOption>('performance');
+  const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
+  const [investments, setInvestments] = useState<Investment[]>(mockPortfolio.investments);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const timePeriods: TimePeriod[] = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
-  const sortedInvestments = [...mockPortfolio.investments].sort((a, b) => {
+  const sortedInvestments = [...investments].sort((a, b) => {
     if (sortBy === 'performance') {
       return b.performance - a.performance;
     } else if (sortBy === 'recent') {
@@ -38,6 +44,33 @@ export default function PortfolioScreen() {
     const currentIndex = options.indexOf(sortBy);
     const nextIndex = (currentIndex + 1) % options.length;
     setSortBy(options[nextIndex]);
+  };
+
+  const handleAddInvestment = () => {
+    if (!searchQuery.trim()) return;
+
+    const mockVideos = [
+      'https://assets.mixkit.co/videos/preview/mixkit-girl-in-white-dress-dancing-in-nature-42999-large.mp4',
+      'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-42875-large.mp4',
+      'https://assets.mixkit.co/videos/preview/mixkit-young-man-skating-42959-large.mp4',
+      'https://assets.mixkit.co/videos/preview/mixkit-man-dancing-on-the-street-42981-large.mp4',
+    ];
+
+    const newInvestment: Investment = {
+      id: Date.now().toString(),
+      username: searchQuery.startsWith('@') ? searchQuery : `@${searchQuery.replace(/\s+/g, '').toLowerCase()}`,
+      investedAt: 'just now',
+      thumbnail: `https://picsum.photos/seed/${Date.now()}/200/300`,
+      videoUrl: mockVideos[Math.floor(Math.random() * mockVideos.length)],
+      viewsOnInvestment: 0,
+      likesOnInvestment: 0,
+      currentViews: Math.floor(Math.random() * 1000),
+      currentLikes: Math.floor(Math.random() * 100),
+      performance: 0,
+    };
+
+    setInvestments([newInvestment, ...investments]);
+    setSearchQuery('');
   };
 
   return (
@@ -116,13 +149,19 @@ export default function PortfolioScreen() {
 
         {/* Search/Investment Input Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchIconContainer}>
+          <TouchableOpacity
+            style={styles.searchIconContainer}
+            onPress={handleAddInvestment}
+          >
             <Ionicons name="add-circle" size={24} color="#4A9D8E" />
-          </View>
+          </TouchableOpacity>
           <TextInput
             style={styles.searchInput}
             placeholder="What do you want to invest in?"
             placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleAddInvestment}
           />
         </View>
 
@@ -140,10 +179,28 @@ export default function PortfolioScreen() {
             <PortfolioInvestmentCard
               key={investment.id}
               investment={investment}
-              onPress={() => console.log('Pressed investment:', investment.id)}
+              onPress={() => {
+                setSelectedInvestment(investment);
+                setIsVideoVisible(true);
+              }}
             />
           ))}
         </View>
+
+        {/* Video Player Modal */}
+        <Modal
+          visible={isVideoVisible}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setIsVideoVisible(false)}
+        >
+          {selectedInvestment && (
+            <TikTokVideoPlayer
+              investment={selectedInvestment}
+              onClose={() => setIsVideoVisible(false)}
+            />
+          )}
+        </Modal>
 
         {/* Bottom spacing for tab bar */}
         <View style={styles.bottomSpacer} />

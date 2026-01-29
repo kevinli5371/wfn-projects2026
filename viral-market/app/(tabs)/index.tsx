@@ -11,6 +11,8 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '@/services/api';
+import { ActivityIndicator, Alert } from 'react-native';
 import PerformanceChart from '@/components/PerformanceChart';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
 import TikTokVideoPlayer from '@/components/TikTokVideoPlayer';
@@ -24,8 +26,47 @@ export default function PortfolioScreen() {
   const [sortBy, setSortBy] = useState<SortOption>('performance');
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
-  const [investments, setInvestments] = useState<Investment[]>(mockPortfolio.investments);
+  // Initialize with empty array, will fetch from API
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Hardcoded user ID for demo
+  const USER_ID = "user1";
+
+  React.useEffect(() => {
+    fetchPortfolio();
+  }, []);
+
+  const fetchPortfolio = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.getPortfolio(USER_ID);
+      if (data && data.investments) {
+        const mappedInvestments: Investment[] = data.investments.map(item => ({
+          id: item.asset_id,
+          username: item.author || 'Unknown',
+          investedAt: 'Just now', // API doesn't return date
+          thumbnail: `https://picsum.photos/seed/${item.asset_id}/200/300`,
+          videoUrl: item.video_url,
+          viewsOnInvestment: 0, // Not provided
+          likesOnInvestment: 0, // Not provided
+          currentViews: 0, // Not provided in list
+          currentLikes: 0, // Not provided in list
+          performance: item.profit_loss_percent
+        }));
+        setInvestments(mappedInvestments);
+      } else {
+        // Fallback to mock if API fails or empty? 
+        // User requested "switch to real API calls", so let's stick to empty or what API returns.
+        // But if API is down, maybe show empty.
+      }
+    } catch (e) {
+      console.error("Failed to fetch portfolio", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const timePeriods: TimePeriod[] = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
@@ -46,31 +87,51 @@ export default function PortfolioScreen() {
     setSortBy(options[nextIndex]);
   };
 
-  const handleAddInvestment = () => {
+  const handleAddInvestment = async () => {
     if (!searchQuery.trim()) return;
 
-    const mockVideos = [
-      'https://assets.mixkit.co/videos/preview/mixkit-girl-in-white-dress-dancing-in-nature-42999-large.mp4',
-      'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-42875-large.mp4',
-      'https://assets.mixkit.co/videos/preview/mixkit-young-man-skating-42959-large.mp4',
-      'https://assets.mixkit.co/videos/preview/mixkit-man-dancing-on-the-street-42981-large.mp4',
-    ];
+    setIsLoading(true);
+    try {
+      // 1. Scrape content
+      const scrapeResult = await api.scrapeVideo(searchQuery);
 
-    const newInvestment: Investment = {
-      id: Date.now().toString(),
-      username: searchQuery.startsWith('@') ? searchQuery : `@${searchQuery.replace(/\s+/g, '').toLowerCase()}`,
-      investedAt: 'just now',
-      thumbnail: `https://picsum.photos/seed/${Date.now()}/200/300`,
-      videoUrl: mockVideos[Math.floor(Math.random() * mockVideos.length)],
-      viewsOnInvestment: 0,
-      likesOnInvestment: 0,
-      currentViews: Math.floor(Math.random() * 1000),
-      currentLikes: Math.floor(Math.random() * 100),
-      performance: 0,
-    };
+      if (!scrapeResult.success || !scrapeResult.asset_id) {
+        Alert.alert("Error", scrapeResult.error || "Failed to scrape video");
+        setIsLoading(false);
+        return;
+      }
 
-    setInvestments([newInvestment, ...investments]);
-    setSearchQuery('');
+      // 2. Show confirmation
+      Alert.alert(
+        "Video Found!",
+        `Author: ${scrapeResult.author}\nViews: ${scrapeResult.views}\nLikes: ${scrapeResult.likes}\nPrice: $${scrapeResult.current_price?.toFixed(2)}`,
+        [
+          { text: "Cancel", style: "cancel", onPress: () => setIsLoading(false) },
+          {
+            text: "Invest (100 coins)",
+            onPress: async () => {
+              // 3. Invest
+              // Note: Using hardcoded 100 coins as per demo flow
+              const investResult = await api.investInVideo(USER_ID, scrapeResult.asset_id!, 100);
+
+              if (investResult.success) {
+                Alert.alert("Success", "Investment added to your portfolio!");
+                setSearchQuery('');
+                // Refresh portfolio
+                fetchPortfolio();
+              } else {
+                Alert.alert("Investment Failed", investResult.error || "Unknown error");
+              }
+              setIsLoading(false);
+            }
+          }
+        ]
+      );
+
+    } catch (e) {
+      Alert.alert("Error", "An unexpected network error occurred");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -205,6 +266,11 @@ export default function PortfolioScreen() {
         {/* Bottom spacing for tab bar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      {isLoading && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <ActivityIndicator size="large" color="#4A9D8E" />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

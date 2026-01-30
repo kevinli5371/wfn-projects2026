@@ -8,8 +8,7 @@ def test_ytdlp():
     ydl_opts = {
         'quiet': True,
         'dump_single_json': True,
-        'extract_flat': True,  # Don't download, just extract info
-        'impersonate': 'chrome' # Try to impersonate chrome
+        'extract_flat': True  # Don't download, just extract info
     }
     
     print(f"Testing yt-dlp with {TEST_URL}...")

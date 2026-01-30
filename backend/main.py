@@ -106,7 +106,7 @@ async def health_check():
 from app.services.scraper import get_tiktok_data
 
 @app.post("/api/scrape", response_model=ScrapeResponse)
-def scrape_video(request: ScrapeRequest):
+async def scrape_video(request: ScrapeRequest):
     """
     Scrape a TikTok video and add to database
     """
@@ -114,8 +114,7 @@ def scrape_video(request: ScrapeRequest):
     
     try:
         # Call the real scraper
-        # Using synchronous call in a non-async path (runs in threadpool)
-        data = get_tiktok_data(video_url)
+        data = await get_tiktok_data(video_url)
         
         # Check for errors from scraper
         if not data or "error" in data:

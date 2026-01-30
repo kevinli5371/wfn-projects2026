@@ -26,6 +26,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============ IN-MEMORY DATABASE ============
+# Temporary storage for the session (resets on restart)
+ASSETS_DB = {}  # asset_id -> { asset data }
+PORTFOLIO_DB = {}  # user_id -> [ { investment data } ]
+USER_BALANCES = {
+    "user1": 1000.0,
+    "testuser": 5000.0
+}
+
 # ============ REQUEST/RESPONSE MODELS ============
 
 class HealthResponse(BaseModel):
@@ -153,9 +162,24 @@ def scrape_video(request: ScrapeRequest):
         # Calculate price: views / 1000
         current_price = views / 1000
         
+        # GENERATE ASSET ID
+        # simplified ID for readability
+        asset_id = f"asset_{author}_{views}"
+        
+        # SAVE TO DB
+        ASSETS_DB[asset_id] = {
+            "asset_id": asset_id,
+            "video_url": video_url,
+            "author": author,
+            "views": views,
+            "likes": likes,
+            "current_price": current_price,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
         return ScrapeResponse(
             success=True,
-            asset_id="asset_" + author + "_" + str(views), # meaningful ID
+            asset_id=asset_id,
             video_url=video_url,
             views=views,
             likes=likes,
@@ -176,24 +200,54 @@ async def create_investment(request: InvestRequest):
     User buys shares of a video asset
     """
     try:
-        # MOCK DATA
-        user_balance = 1000.0
-        asset_price = 125.0
+        # 1. Get User Balance
+        user_balance = USER_BALANCES.get(request.user_id, 0.0)
         
-        # Validate user has enough balance
+        # 2. Get Asset Details
+        asset = ASSETS_DB.get(request.asset_id)
+        if not asset:
+            # If not in DB, maybe it's a cold start or invalid ID
+            # In a real app we might try to fetch it from DB, but here we expect it to be in ASSETS_DB (from scrape)
+            raise HTTPException(status_code=404, detail="Asset not found. Please Search/Scrape first.")
+            
+        asset_price = asset["current_price"]
+        
+        # 3. Validate Funds
         if user_balance < request.amount_coins:
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient funds. Balance: ${user_balance}, Required: ${request.amount_coins}"
+                detail=f"Insufficient funds. Balance: ${user_balance:.2f}, Required: ${request.amount_coins:.2f}"
             )
         
-        # Calculate shares
-        shares = request.amount_coins / asset_price
+        # 4. Execute Trade
+        shares = request.amount_coins / asset_price if asset_price > 0 else 0
         new_balance = user_balance - request.amount_coins
+        
+        # Update Balance
+        USER_BALANCES[request.user_id] = new_balance
+        
+        # Create Investment Record
+        investment_id = f"inv_{request.user_id}_{int(datetime.utcnow().timestamp())}"
+        
+        investment_record = {
+            "investment_id": investment_id,
+            "asset_id": request.asset_id,
+            "video_url": asset["video_url"],
+            "author": asset["author"],
+            "shares_owned": shares,
+            "buy_price": asset_price,
+            "cost_basis": request.amount_coins,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Add to Portfolio
+        if request.user_id not in PORTFOLIO_DB:
+            PORTFOLIO_DB[request.user_id] = []
+        PORTFOLIO_DB[request.user_id].append(investment_record)
         
         return InvestResponse(
             success=True,
-            investment_id="inv_123",
+            investment_id=investment_id,
             shares_purchased=shares,
             entry_price=asset_price,
             total_cost=request.amount_coins,
@@ -214,32 +268,60 @@ async def get_portfolio(user_id: str):
     Get user's portfolio with all investments and P/L
     """
     try:
-        # MOCK DATA
-        mock_investments = [
-            PortfolioItem(
-                asset_id="asset_1",
-                video_url="https://tiktok.com/@user/video/123",
-                author="testuser",
-                shares=5.0,
-                buy_price=100.0,
-                current_price=150.0,
-                current_value=750.0,
-                profit_loss=250.0,
-                profit_loss_percent=50.0
-            )
-        ]
+        # Get User Balance
+        balance = USER_BALANCES.get(user_id, 0.0)
         
-        total_invested = sum(item.shares * item.buy_price for item in mock_investments)
-        total_value = sum(item.current_value for item in mock_investments)
+        # Get User Investments
+        user_investments = PORTFOLIO_DB.get(user_id, [])
+        
+        portfolio_items = []
+        total_invested = 0.0
+        total_value = 0.0
+        
+        for inv in user_investments:
+            # Get current asset info (price might have changed)
+            asset_id = inv["asset_id"]
+            asset_info = ASSETS_DB.get(asset_id)
+            
+            # If asset info missing (shouldn't happen in memory), fallback to buy data
+            current_price = asset_info["current_price"] if asset_info else inv["buy_price"]
+            
+            # Calculate metrics
+            shares = inv["shares_owned"]
+            buy_price = inv["buy_price"]
+            cost_basis = inv["cost_basis"]
+            
+            curr_val = shares * current_price
+            p_l = curr_val - cost_basis
+            p_l_percent = (p_l / cost_basis * 100) if cost_basis > 0 else 0
+            
+            # Add to totals
+            total_invested += cost_basis
+            total_value += curr_val
+            
+            # Create Item
+            item = PortfolioItem(
+                asset_id=asset_id,
+                video_url=inv.get("video_url", ""),
+                author=inv.get("author", "Unknown"),
+                shares=shares,
+                buy_price=buy_price,
+                current_price=current_price,
+                current_value=curr_val,
+                profit_loss=p_l,
+                profit_loss_percent=p_l_percent
+            )
+            portfolio_items.append(item)
+            
         total_pl = total_value - total_invested
         
         return PortfolioResponse(
             user_id=user_id,
-            balance=500.0,
+            balance=balance,
             total_invested=total_invested,
             total_value=total_value,
             total_profit_loss=total_pl,
-            investments=mock_investments
+            investments=portfolio_items
         )
         
     except Exception as e:

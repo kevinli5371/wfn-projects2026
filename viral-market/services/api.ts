@@ -1,8 +1,8 @@
 
 import { Alert } from 'react-native';
 
-// const BASE_URL = 'http://localhost:8000';
-const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
+const BASE_URL = 'http://localhost:8000';
+// const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
 
 
 export interface ScrapeResponse {

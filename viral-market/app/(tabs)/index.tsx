@@ -9,13 +9,15 @@ import {
   SafeAreaView,
   StatusBar,
   Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '@/services/api';
-import { ActivityIndicator, Alert } from 'react-native';
 import PerformanceChart from '@/components/PerformanceChart';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
 import TikTokVideoPlayer from '@/components/TikTokVideoPlayer';
+import ScrapeResultCard from '@/components/ScrapeResultCard';
+import { api, ScrapeResponse } from '@/services/api';
 import { mockPortfolio, chartData, Investment } from '@/constants/mockData';
 
 type TimePeriod = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
@@ -30,6 +32,11 @@ export default function PortfolioScreen() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [balance, setBalance] = useState(1000.0);
+  const [username, setUsername] = useState('Player');
+  const [weeklyCount, setWeeklyCount] = useState(0);
+  const [pendingInvestment, setPendingInvestment] = useState<ScrapeResponse | null>(null);
+  const [isInvesting, setIsInvesting] = useState(false);
 
   // Hardcoded user ID for demo
   const USER_ID = "user1";
@@ -42,24 +49,25 @@ export default function PortfolioScreen() {
     setIsLoading(true);
     try {
       const data = await api.getPortfolio(USER_ID);
-      if (data && data.investments) {
-        const mappedInvestments: Investment[] = data.investments.map(item => ({
-          id: item.asset_id,
-          username: item.author || 'Unknown',
-          investedAt: 'Just now', // API doesn't return date
-          thumbnail: `https://picsum.photos/seed/${item.asset_id}/200/300`,
-          videoUrl: item.video_url,
-          viewsOnInvestment: 0, // Not provided
-          likesOnInvestment: 0, // Not provided
-          currentViews: 0, // Not provided in list
-          currentLikes: 0, // Not provided in list
-          performance: item.profit_loss_percent
-        }));
-        setInvestments(mappedInvestments);
-      } else {
-        // Fallback to mock if API fails or empty? 
-        // User requested "switch to real API calls", so let's stick to empty or what API returns.
-        // But if API is down, maybe show empty.
+      if (data) {
+        setBalance(data.balance);
+        setWeeklyCount(data.investments.length);
+
+        if (data.investments) {
+          const mappedInvestments: Investment[] = data.investments.map(item => ({
+            id: item.asset_id,
+            username: item.author || 'Unknown',
+            investedAt: 'Just now',
+            thumbnail: `https://picsum.photos/seed/${item.asset_id}/200/300`,
+            videoUrl: item.video_url,
+            viewsOnInvestment: 0,
+            likesOnInvestment: 0,
+            currentViews: item.current_price * 1000,
+            currentLikes: 0,
+            performance: item.profit_loss_percent
+          }));
+          setInvestments(mappedInvestments);
+        }
       }
     } catch (e) {
       console.error("Failed to fetch portfolio", e);
@@ -91,46 +99,45 @@ export default function PortfolioScreen() {
     if (!searchQuery.trim()) return;
 
     setIsLoading(true);
+    setPendingInvestment(null);
     try {
-      // 1. Scrape content
       const scrapeResult = await api.scrapeVideo(searchQuery);
+      console.log("Scrape Result:", scrapeResult);
 
       if (!scrapeResult.success || !scrapeResult.asset_id) {
+        console.error("Scrape failed:", scrapeResult.error);
         Alert.alert("Error", scrapeResult.error || "Failed to scrape video");
-        setIsLoading(false);
         return;
       }
 
-      // 2. Show confirmation
-      Alert.alert(
-        "Video Found!",
-        `Author: ${scrapeResult.author}\nViews: ${scrapeResult.views}\nLikes: ${scrapeResult.likes}\nPrice: $${scrapeResult.current_price?.toFixed(2)}`,
-        [
-          { text: "Cancel", style: "cancel", onPress: () => setIsLoading(false) },
-          {
-            text: "Invest (100 coins)",
-            onPress: async () => {
-              // 3. Invest
-              // Note: Using hardcoded 100 coins as per demo flow
-              const investResult = await api.investInVideo(USER_ID, scrapeResult.asset_id!, 100);
-
-              if (investResult.success) {
-                Alert.alert("Success", "Investment added to your portfolio!");
-                setSearchQuery('');
-                // Refresh portfolio
-                fetchPortfolio();
-              } else {
-                Alert.alert("Investment Failed", investResult.error || "Unknown error");
-              }
-              setIsLoading(false);
-            }
-          }
-        ]
-      );
-
+      setPendingInvestment(scrapeResult);
+      setSearchQuery('');
     } catch (e) {
+      console.error("Scrape error exception:", e);
       Alert.alert("Error", "An unexpected network error occurred");
+    } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConfirmInvestment = async (assetId: string) => {
+    if (!USER_ID) return;
+
+    setIsInvesting(true);
+    try {
+      const investResult = await api.investInVideo(USER_ID, assetId, 100);
+
+      if (investResult.success) {
+        Alert.alert("Success", "Investment added to your portfolio!");
+        setPendingInvestment(null);
+        fetchPortfolio();
+      } else {
+        Alert.alert("Investment Failed", investResult.error || "Unknown error");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Failed to complete investment");
+    } finally {
+      setIsInvesting(false);
     }
   };
 
@@ -140,9 +147,9 @@ export default function PortfolioScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello {mockPortfolio.username},</Text>
+          <Text style={styles.greeting}>Hello {username},</Text>
           <Text style={styles.subGreeting}>
-            You invested in {mockPortfolio.weeklyInvestments} videos this week.
+            You have {weeklyCount} investments in your portfolio.
           </Text>
         </View>
 
@@ -150,7 +157,7 @@ export default function PortfolioScreen() {
         <View style={styles.accountSection}>
           <Text style={styles.accountLabel}>Your Account</Text>
           <Text style={styles.balance}>
-            ${mockPortfolio.accountBalance.toLocaleString('en-US', {
+            ${balance.toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -228,8 +235,16 @@ export default function PortfolioScreen() {
 
         {/* Portfolio List */}
         <View style={styles.portfolioSection}>
+          {pendingInvestment && (
+            <ScrapeResultCard
+              data={pendingInvestment}
+              onInvest={handleConfirmInvestment}
+              onDismiss={() => setPendingInvestment(null)}
+              isInvesting={isInvesting}
+            />
+          )}
           <View style={styles.portfolioHeader}>
-            <Text style={styles.portfolioTitle}>{mockPortfolio.username}'s Portfolio</Text>
+            <Text style={styles.portfolioTitle}>{username}'s Portfolio</Text>
             <TouchableOpacity onPress={toggleSort} style={styles.sortButton}>
               <Text style={styles.sortText}>Sort</Text>
               <Ionicons name="chevron-down" size={16} color="#4A9D8E" />
@@ -266,12 +281,14 @@ export default function PortfolioScreen() {
         {/* Bottom spacing for tab bar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-      {isLoading && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <ActivityIndicator size="large" color="#4A9D8E" />
-        </View>
-      )}
-    </SafeAreaView>
+      {
+        isLoading && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+            <ActivityIndicator size="large" color="#4A9D8E" />
+          </View>
+        )
+      }
+    </SafeAreaView >
   );
 }
 

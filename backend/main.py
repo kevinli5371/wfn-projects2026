@@ -87,6 +87,7 @@ class PortfolioResponse(BaseModel):
     investments: List[PortfolioItem]
 
 class AddVideoRequest(BaseModel):
+    user_key: str
     video_url: str
     author: str
     views: int
@@ -95,6 +96,7 @@ class AddVideoRequest(BaseModel):
 
 class AddVideoResponse(BaseModel):
     success: bool
+    user_key: Optional[str] = None
     asset_id: Optional[str] = None
     video_url: Optional[str] = None
     author: Optional[str] = None
@@ -395,6 +397,7 @@ async def add_video(request: AddVideoRequest):
         # Insert into Supabase
         supabase.table("videos").insert({
             "asset_id": asset_id,
+            "user_key": request.user_key,
             "video_url": request.video_url,
             "author": request.author,
             "views": request.views,
@@ -405,6 +408,7 @@ async def add_video(request: AddVideoRequest):
         
         return AddVideoResponse(
             success=True,
+            user_key=request.user_key,
             asset_id=asset_id,
             video_url=request.video_url,
             author=request.author,

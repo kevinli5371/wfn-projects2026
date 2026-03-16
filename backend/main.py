@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 import os
+import uuid
 from datetime import datetime
 from app.services.supabase_client import supabase
 from app.services.scraper import get_tiktok_data
@@ -84,6 +85,24 @@ class PortfolioResponse(BaseModel):
     total_value: float
     total_profit_loss: float
     investments: List[PortfolioItem]
+
+class AddVideoRequest(BaseModel):
+    video_url: str
+    author: str
+    views: int
+    likes: int
+    current_price: float
+
+class AddVideoResponse(BaseModel):
+    success: bool
+    asset_id: Optional[str] = None
+    video_url: Optional[str] = None
+    author: Optional[str] = None
+    views: Optional[int] = None
+    likes: Optional[int] = None
+    current_price: Optional[float] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
 
 # ============ ENDPOINTS ============
 
@@ -361,6 +380,39 @@ async def get_leaderboard():
         return {
             "leaderboard": leaderboard[:100]
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/videos/add", response_model=AddVideoResponse, status_code=201)
+async def add_video(request: AddVideoRequest):
+    """
+    Manually add a video to the Supabase database
+    """
+    try:
+        asset_id = str(uuid.uuid4())
+        
+        # Insert into Supabase
+        supabase.table("videos").insert({
+            "asset_id": asset_id,
+            "video_url": request.video_url,
+            "author": request.author,
+            "views": request.views,
+            "likes": request.likes,
+            "current_price": request.current_price,
+            "created_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        return AddVideoResponse(
+            success=True,
+            asset_id=asset_id,
+            video_url=request.video_url,
+            author=request.author,
+            views=request.views,
+            likes=request.likes,
+            current_price=request.current_price,
+            message="Video added successfully"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

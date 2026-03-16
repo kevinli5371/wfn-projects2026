@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,119 +8,84 @@ import {
     TextInput,
     SafeAreaView,
     StatusBar,
-    Image,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-interface PartyMember {
-    id: string;
-    name: string;
-    videosInvested: number;
-    amountInvested: number;
-    performance: number;
-    avatar?: string;
-}
-
-interface Party {
-    name: string;
-    memberCount: number;
-    members: PartyMember[];
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { api, GroupInfo } from '@/services/api';
 
 export default function PartyScreen() {
-    const [hasParty, setHasParty] = useState(false);
+    const { user } = useAuth();
     const [joinCode, setJoinCode] = useState('');
     const [partyName, setPartyName] = useState('');
+    const [groups, setGroups] = useState<GroupInfo[]>([]);
+    const [selectedGroup, setSelectedGroup] = useState<GroupInfo | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Mock party data - in a real app, this would come from your backend
-    const [party, setParty] = useState<Party>({
-        name: 'fazeninjas',
-        memberCount: 7,
-        members: [
-            {
-                id: '1',
-                name: 'James Yang',
-                videosInvested: 9,
-                amountInvested: 29900,
-                performance: 450,
-            },
-            {
-                id: '2',
-                name: 'Kevin Li',
-                videosInvested: 8,
-                amountInvested: 23000,
-                performance: -270,
-            },
-            {
-                id: '3',
-                name: 'Aaron Khaki',
-                videosInvested: 10,
-                amountInvested: 22745,
-                performance: 670,
-            },
-            {
-                id: '4',
-                name: 'Maxwell Peng',
-                videosInvested: 17,
-                amountInvested: 18223,
-                performance: 235,
-            },
-            {
-                id: '5',
-                name: 'Emily Liu',
-                videosInvested: 4,
-                amountInvested: 16080,
-                performance: -983,
-            },
-            {
-                id: '6',
-                name: 'Ethan Zheng',
-                videosInvested: 1,
-                amountInvested: 15899,
-                performance: 270,
-            },
-            {
-                id: '7',
-                name: 'Allen Liu',
-                videosInvested: 9,
-                amountInvested: 13079,
-                performance: 450,
-            },
-        ],
-    });
+    const userId = user?.userId ?? 'user1';
 
-    const handleJoinParty = () => {
-        if (joinCode.trim()) {
-            // In a real app, validate the code with your backend
-            setHasParty(true);
+    useEffect(() => {
+        loadGroups();
+    }, []);
+
+    const loadGroups = async () => {
+        setIsLoading(true);
+        try {
+            const res = await api.getUserGroups(userId);
+            if (res.success) {
+                setGroups(res.groups);
+                // Auto-select first group if available
+                if (res.groups.length > 0 && !selectedGroup) {
+                    setSelectedGroup(res.groups[0]);
+                }
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleCreateParty = () => {
-        if (partyName.trim()) {
-            // In a real app, create the party in your backend
-            setParty({ ...party, name: partyName });
-            setHasParty(true);
+    const handleJoinParty = async () => {
+        if (!joinCode.trim()) return;
+        setIsLoading(true);
+        try {
+            const res = await api.joinGroup(userId, joinCode.trim().toUpperCase());
+            if (res.success && res.group) {
+                Alert.alert('Joined!', `You joined ${res.group.group_name}`);
+                setJoinCode('');
+                loadGroups();
+                setSelectedGroup(res.group);
+            } else {
+                Alert.alert('Error', res.error || 'Could not join group');
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleLeaveParty = () => {
-        setHasParty(false);
-        setJoinCode('');
-        setPartyName('');
+    const handleCreateParty = async () => {
+        if (!partyName.trim()) return;
+        setIsLoading(true);
+        try {
+            const res = await api.createGroup(userId, partyName.trim());
+            if (res.success && res.group) {
+                Alert.alert('Created!', `Group code: ${res.group.group_id}\nShare this with friends!`);
+                setPartyName('');
+                loadGroups();
+                setSelectedGroup(res.group);
+            } else {
+                Alert.alert('Error', res.error || 'Could not create group');
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const getPerformanceStyle = (performance: number) => {
-        return performance >= 0 ? styles.performancePositive : styles.performanceNegative;
+    const handleLeaveGroup = () => {
+        setSelectedGroup(null);
     };
 
-    const formatPerformance = (performance: number) => {
-        const sign = performance >= 0 ? '+' : '';
-        return `${sign}${(performance / 10).toFixed(1)}%`;
-    };
-
-    // Join or Create Party Screen
-    if (!hasParty) {
+    // If no group selected, show join/create screen
+    if (!selectedGroup) {
         return (
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="dark-content" />
@@ -134,7 +99,7 @@ export default function PartyScreen() {
                             placeholderTextColor="#C8C8C8"
                             value={joinCode}
                             onChangeText={setJoinCode}
-                            autoCapitalize="none"
+                            autoCapitalize="characters"
                         />
 
                         <TextInput
@@ -146,6 +111,23 @@ export default function PartyScreen() {
                             autoCapitalize="words"
                         />
                     </View>
+
+                    {/* Show existing groups the user is already in */}
+                    {groups.length > 0 && (
+                        <View style={styles.existingGroups}>
+                            <Text style={styles.existingGroupsTitle}>Your Groups</Text>
+                            {groups.map((g) => (
+                                <TouchableOpacity
+                                    key={g.group_id}
+                                    style={styles.existingGroupItem}
+                                    onPress={() => setSelectedGroup(g)}
+                                >
+                                    <Text style={styles.existingGroupName}>{g.group_name}</Text>
+                                    <Text style={styles.existingGroupCode}>Code: {g.group_id}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
 
                     <TouchableOpacity
                         style={styles.nextButton}
@@ -164,15 +146,15 @@ export default function PartyScreen() {
         );
     }
 
-    // Leaderboard Screen
+    // Leaderboard Screen for selected group
     return (
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-                {/* Leave Party Button */}
-                <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveParty}>
-                    <Text style={styles.leaveButtonText}>Leave Party</Text>
-                    <Ionicons name="close" size={20} color="#666" />
+                {/* Back Button */}
+                <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
+                    <Text style={styles.leaveButtonText}>Back to Groups</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#666" />
                 </TouchableOpacity>
 
                 {/* Party Header */}
@@ -180,44 +162,44 @@ export default function PartyScreen() {
                     <View style={styles.partyImagePlaceholder}>
                         <Ionicons name="people" size={60} color="#999" />
                     </View>
-                    <Text style={styles.partyName}>{party.name}</Text>
-                    <Text style={styles.memberCount}>{party.memberCount} members</Text>
+                    <Text style={styles.partyName}>{selectedGroup.group_name}</Text>
+                    <Text style={styles.memberCount}>
+                        {selectedGroup.members.length} member{selectedGroup.members.length !== 1 ? 's' : ''}
+                    </Text>
+                    <View style={styles.codeContainer}>
+                        <Text style={styles.codeLabel}>Group Code:</Text>
+                        <Text style={styles.codeValue}>{selectedGroup.group_id}</Text>
+                    </View>
                     <TouchableOpacity style={styles.inviteButton}>
                         <Ionicons name="add" size={16} color="#fff" />
                         <Text style={styles.inviteButtonText}>Invite</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Rankings Section */}
+                {/* Members Section */}
                 <View style={styles.rankingsSection}>
-                    <Text style={styles.rankingsTitle}>Rankings</Text>
+                    <Text style={styles.rankingsTitle}>Members</Text>
 
-                    {party.members.map((member, index) => (
-                        <View key={member.id} style={styles.memberCard}>
+                    {selectedGroup.members.map((memberId, index) => (
+                        <View key={memberId} style={styles.memberCard}>
                             <View style={styles.memberLeft}>
                                 <View style={styles.avatar}>
                                     <Ionicons name="person" size={24} color="#999" />
                                 </View>
                                 <View style={styles.memberInfo}>
-                                    <Text style={styles.memberName}>{member.name}</Text>
-                                    <Text style={styles.memberStats}>
-                                        Invested in {member.videosInvested} videos this week
-                                    </Text>
-                                    <Text style={styles.memberAmount}>
-                                        ${member.amountInvested.toLocaleString()}
-                                    </Text>
+                                    <Text style={styles.memberName}>{memberId}</Text>
+                                    {memberId === selectedGroup.created_by && (
+                                        <Text style={styles.memberStats}>Creator</Text>
+                                    )}
+                                    {memberId === userId && (
+                                        <Text style={styles.memberStats}>You</Text>
+                                    )}
                                 </View>
-                            </View>
-                            <View style={[styles.performanceBadge, getPerformanceStyle(member.performance)]}>
-                                <Text style={styles.performanceText}>
-                                    {formatPerformance(member.performance)}
-                                </Text>
                             </View>
                         </View>
                     ))}
                 </View>
 
-                {/* Bottom spacing for tab bar */}
                 <View style={styles.bottomSpacer} />
             </ScrollView>
         </SafeAreaView>
@@ -245,7 +227,7 @@ const styles = StyleSheet.create({
     },
     inputsContainer: {
         gap: 16,
-        marginBottom: 200,
+        marginBottom: 24,
     },
     input: {
         backgroundColor: '#fff',
@@ -255,13 +237,41 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#333',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 1,
-        },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
+    },
+    existingGroups: {
+        marginBottom: 24,
+    },
+    existingGroupsTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4A9D8E',
+        marginBottom: 12,
+    },
+    existingGroupItem: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 16,
+        marginBottom: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    existingGroupName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+    },
+    existingGroupCode: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 2,
     },
     nextButton: {
         backgroundColor: '#4A9D8E',
@@ -315,7 +325,23 @@ const styles = StyleSheet.create({
     memberCount: {
         fontSize: 14,
         color: '#666',
+        marginBottom: 8,
+    },
+    codeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
         marginBottom: 12,
+    },
+    codeLabel: {
+        fontSize: 13,
+        color: '#999',
+    },
+    codeValue: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#4A9D8E',
+        letterSpacing: 2,
     },
     inviteButton: {
         flexDirection: 'row',
@@ -350,10 +376,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 1,
-        },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
@@ -385,28 +408,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#999',
         marginBottom: 2,
-    },
-    memberAmount: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-    },
-    performanceBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        marginLeft: 8,
-    },
-    performancePositive: {
-        backgroundColor: '#7CBF3F',
-    },
-    performanceNegative: {
-        backgroundColor: '#E74C3C',
-    },
-    performanceText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
     },
     bottomSpacer: {
         height: 100,

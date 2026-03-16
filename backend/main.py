@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 import os
+import hashlib
+import random
+import string
 from datetime import datetime
 from app.services.supabase_client import supabase
 from app.services.scraper import get_tiktok_data
@@ -84,6 +87,50 @@ class PortfolioResponse(BaseModel):
     total_value: float
     total_profit_loss: float
     investments: List[PortfolioItem]
+
+# ---- Auth Models ----
+
+class SignupRequest(BaseModel):
+    email: str
+    username: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class AuthResponse(BaseModel):
+    success: bool
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    balance: Optional[float] = None
+    error: Optional[str] = None
+
+# ---- Group Models ----
+
+class CreateGroupRequest(BaseModel):
+    user_id: str
+    group_name: str
+
+class JoinGroupRequest(BaseModel):
+    user_id: str
+    group_id: str
+
+class GroupInfo(BaseModel):
+    group_id: str
+    group_name: str
+    members: List[str]
+    created_by: str
+
+class GroupResponse(BaseModel):
+    success: bool
+    group: Optional[GroupInfo] = None
+    error: Optional[str] = None
+
+class UserGroupsResponse(BaseModel):
+    success: bool
+    groups: List[GroupInfo] = []
+    error: Optional[str] = None
 
 # ============ ENDPOINTS ============
 
@@ -363,6 +410,147 @@ async def get_leaderboard():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ AUTH ENDPOINTS ============
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+@app.post("/api/auth/signup", response_model=AuthResponse)
+async def signup(request: SignupRequest):
+    try:
+        # Check if email already exists
+        existing = supabase.table("users").select("user_id").eq("email", request.email).execute()
+        if existing.data:
+            return AuthResponse(success=False, error="Email already registered")
+        
+        # Check if username already exists
+        existing_user = supabase.table("users").select("user_id").eq("username", request.username).execute()
+        if existing_user.data:
+            return AuthResponse(success=False, error="Username already taken")
+        
+        user_id = f"user_{request.username}_{int(datetime.utcnow().timestamp())}"
+        
+        supabase.table("users").insert({
+            "user_id": user_id,
+            "username": request.username,
+            "email": request.email,
+            "password_hash": hash_password(request.password),
+            "balance": 1000.0
+        }).execute()
+        
+        return AuthResponse(success=True, user_id=user_id, username=request.username, balance=1000.0)
+    except Exception as e:
+        print(f"Signup error: {e}")
+        return AuthResponse(success=False, error=str(e))
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    try:
+        user_res = supabase.table("users").select("*").eq("email", request.email).execute()
+        if not user_res.data:
+            return AuthResponse(success=False, error="No account found with that email")
+        
+        user = user_res.data[0]
+        if user.get("password_hash") != hash_password(request.password):
+            return AuthResponse(success=False, error="Incorrect password")
+        
+        return AuthResponse(
+            success=True,
+            user_id=user["user_id"],
+            username=user.get("username", user["user_id"]),
+            balance=user["balance"]
+        )
+    except Exception as e:
+        print(f"Login error: {e}")
+        return AuthResponse(success=False, error=str(e))
+
+
+# ============ GROUP ENDPOINTS ============
+
+def generate_group_code(length=6):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
+@app.post("/api/groups/create", response_model=GroupResponse)
+async def create_group(request: CreateGroupRequest):
+    try:
+        group_id = generate_group_code()
+        
+        supabase.table("groups").insert({
+            "group_id": group_id,
+            "group_name": request.group_name,
+            "members": [request.user_id],
+            "created_by": request.user_id
+        }).execute()
+        
+        return GroupResponse(
+            success=True,
+            group=GroupInfo(
+                group_id=group_id,
+                group_name=request.group_name,
+                members=[request.user_id],
+                created_by=request.user_id
+            )
+        )
+    except Exception as e:
+        print(f"Create group error: {e}")
+        return GroupResponse(success=False, error=str(e))
+
+
+@app.post("/api/groups/join", response_model=GroupResponse)
+async def join_group(request: JoinGroupRequest):
+    try:
+        # Find the group
+        group_res = supabase.table("groups").select("*").eq("group_id", request.group_id).execute()
+        if not group_res.data:
+            return GroupResponse(success=False, error="Group not found. Check the code and try again.")
+        
+        group = group_res.data[0]
+        members = group.get("members", [])
+        
+        if request.user_id in members:
+            return GroupResponse(success=False, error="You are already in this group")
+        
+        # Add user to members array
+        members.append(request.user_id)
+        supabase.table("groups").update({"members": members}).eq("group_id", request.group_id).execute()
+        
+        return GroupResponse(
+            success=True,
+            group=GroupInfo(
+                group_id=group["group_id"],
+                group_name=group["group_name"],
+                members=members,
+                created_by=group["created_by"]
+            )
+        )
+    except Exception as e:
+        print(f"Join group error: {e}")
+        return GroupResponse(success=False, error=str(e))
+
+
+@app.get("/api/groups/{user_id}", response_model=UserGroupsResponse)
+async def get_user_groups(user_id: str):
+    try:
+        # Get all groups where user_id is in the members array
+        all_groups_res = supabase.table("groups").select("*").contains("members", [user_id]).execute()
+        
+        groups = [
+            GroupInfo(
+                group_id=g["group_id"],
+                group_name=g["group_name"],
+                members=g.get("members", []),
+                created_by=g["created_by"]
+            )
+            for g in all_groups_res.data
+        ]
+        
+        return UserGroupsResponse(success=True, groups=groups)
+    except Exception as e:
+        print(f"Get groups error: {e}")
+        return UserGroupsResponse(success=False, error=str(e))
 
 
 # ============ RUN SERVER ============

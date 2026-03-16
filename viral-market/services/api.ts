@@ -1,8 +1,6 @@
-
-import { Alert } from 'react-native';
-
 // const BASE_URL = 'http://localhost:8000';
-const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
+const BASE_URL = 'http://172.20.10.2:8000';
+// const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
 
 
 export interface ScrapeResponse {
@@ -55,6 +53,13 @@ export interface LeaderboardItem {
 
 export interface LeaderboardResponse {
     leaderboard: LeaderboardItem[];
+}
+
+export interface GroupInfo {
+    group_id: string;
+    group_name: string;
+    members: string[];
+    created_by: string;
 }
 
 export const api = {
@@ -114,5 +119,43 @@ export const api = {
             console.error("Get leaderboard error:", error);
             return null;
         }
-    }
+    },
+
+    createGroup: async (userId: string, groupName: string): Promise<{ success: boolean; group?: GroupInfo; error?: string }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/groups/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, group_name: groupName }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Create group error:', error);
+            return { success: false, error: 'Network error' };
+        }
+    },
+
+    joinGroup: async (userId: string, groupId: string): Promise<{ success: boolean; group?: GroupInfo; error?: string }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/groups/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, group_id: groupId }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Join group error:', error);
+            return { success: false, error: 'Network error' };
+        }
+    },
+
+    getUserGroups: async (userId: string): Promise<{ success: boolean; groups: GroupInfo[] }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/groups/${userId}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Get groups error:', error);
+            return { success: false, groups: [] };
+        }
+    },
 };

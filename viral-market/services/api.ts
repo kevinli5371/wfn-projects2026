@@ -41,6 +41,17 @@ export interface PortfolioItem {
     like_history?: { timestamp: string; count: number }[];
 }
 
+export interface UserProfileResponse {
+    success: boolean;
+    user_id?: string;
+    username?: string;
+    display_name?: string;
+    profile_picture_url?: string;
+    balance?: number;
+    email?: string;
+    error?: string;
+}
+
 export interface PortfolioResponse {
     user_id: string;
     balance: number;
@@ -198,6 +209,59 @@ export const api = {
         } catch (error) {
             console.error('Get groups error:', error);
             return { success: false, groups: [] };
+        }
+    },
+
+    getProfile: async (userId: string): Promise<UserProfileResponse> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/user/${userId}/profile`);
+            return await response.json();
+        } catch (error) {
+            console.error('Get profile error:', error);
+            return { success: false, error: 'Network error' };
+        }
+    },
+
+    updateProfile: async (userId: string, displayName: string, profilePictureUrl?: string): Promise<UserProfileResponse> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/user/${userId}/profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    display_name: displayName,
+                    profile_picture_url: profilePictureUrl
+                }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Update profile error:', error);
+            return { success: false, error: 'Network error' };
+        }
+    },
+
+    uploadAvatar: async (userId: string, imageUri: string, mimeType: string = 'image/jpeg'): Promise<{ success: boolean; profile_picture_url?: string; error?: string }> => {
+        try {
+            const formData = new FormData();
+            
+            // React Native fetch with FormData needs this specific structure for files
+            formData.append('file', {
+                uri: imageUri,
+                name: `avatar_${userId}.jpg`,
+                type: mimeType,
+            } as any);
+
+            const response = await fetch(`${BASE_URL}/api/user/${userId}/avatar`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    // Don't set Content-Type header manually when using FormData in React Native
+                    // fetch will set it correctly with the boundary
+                },
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Upload avatar error:', error);
+            return { success: false, error: 'Network error' };
         }
     },
 

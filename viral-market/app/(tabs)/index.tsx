@@ -11,7 +11,9 @@ import {
   StatusBar,
   Linking,
   Modal,
+  Image,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api, PortfolioResponse } from '@/services/api';
 import { ActivityIndicator, Alert } from 'react-native';
@@ -41,6 +43,8 @@ export default function PortfolioScreen() {
   // Use real authenticated user ID
   const userId = user?.userId ?? 'user1';
   const username = user?.username ?? 'User';
+  const displayName = user?.display_name ?? username;
+  const profilePictureUrl = user?.profile_picture_url;
 
   // Chart data based on portfolio balance (static shape for now)
   const chartData = [
@@ -191,10 +195,21 @@ export default function PortfolioScreen() {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello {username},</Text>
-          <Text style={styles.subGreeting}>
-            You have {investments.length} investment{investments.length !== 1 ? 's' : ''} in your portfolio.
-          </Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.greeting}>Hello {displayName},</Text>
+            <Text style={styles.subGreeting}>
+              You have {investments.length} investment{investments.length !== 1 ? 's' : ''} in your portfolio.
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/profile')}>
+            {profilePictureUrl ? (
+              <Image source={{ uri: profilePictureUrl }} style={styles.headerAvatar} />
+            ) : (
+              <View style={styles.headerAvatarPlaceholder}>
+                <Ionicons name="person" size={24} color="#999" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Account Balance */}
@@ -437,6 +452,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginLeft: 16,
+  },
+  headerAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E5E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 16,
   },
   greeting: {
     fontSize: 32,

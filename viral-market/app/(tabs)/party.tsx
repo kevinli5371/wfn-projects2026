@@ -291,7 +291,7 @@ export default function PartyScreen() {
                                 key={member.user_id} 
                                 style={styles.memberCard}
                                 activeOpacity={0.7}
-                                onPress={() => openMemberPortfolio(member.user_id, member.username)}
+                                onPress={() => openMemberPortfolio(member.user_id, member.display_name || member.username)}
                             >
                                 <View style={styles.memberLeft}>
                                     <View style={[styles.rankBadge, member.rank <= 3 ? styles[(`rankBadge${member.rank}`) as keyof typeof styles] as any : null]}>
@@ -299,12 +299,16 @@ export default function PartyScreen() {
                                             #{member.rank}
                                         </Text>
                                     </View>
-                                    <View style={styles.avatar}>
-                                        <Ionicons name="person" size={24} color="#999" />
-                                    </View>
+                                    {member.profile_picture_url ? (
+                                        <Image source={{ uri: member.profile_picture_url }} style={styles.memberAvatarImage} />
+                                    ) : (
+                                        <View style={styles.avatar}>
+                                            <Ionicons name="person" size={24} color="#999" />
+                                        </View>
+                                    )}
                                     <View style={styles.memberInfo}>
-                                        <Text style={styles.memberName}>{member.username}</Text>
-                                        {member.username === userId && (
+                                        <Text style={styles.memberName}>{member.display_name || member.username}</Text>
+                                        {member.user_id === userId && (
                                             <Text style={styles.memberStats}>You</Text>
                                         )}
                                     </View>
@@ -606,12 +610,18 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: '#E5E5E5',
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: 12,
+    },
+    memberAvatarImage: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         marginRight: 12,
     },
     memberInfo: {

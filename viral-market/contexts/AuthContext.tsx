@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Alert } from 'react-native';
+import { API_BASE_URL } from '../config';
 
 interface User {
   userId: string;
@@ -29,7 +30,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-const API_URL = 'http://172.20.10.2:8000';
+const API_URL = API_BASE_URL;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

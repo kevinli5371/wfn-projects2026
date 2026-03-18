@@ -1,7 +1,8 @@
-// const BASE_URL = 'http://localhost:8000';
-const BASE_URL = 'http://172.20.10.2:8000';
-// const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
+import { API_BASE_URL } from '../config';
 
+const BASE_URL = API_BASE_URL;
+// const BASE_URL = 'http://localhost:8000';
+// const BASE_URL = 'https://wfn-projects2026-production.up.railway.app';
 
 export interface ScrapeResponse {
     success: boolean;

@@ -258,6 +258,14 @@ async def create_investment(request: InvestRequest):
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset not found. Please Search/Scrape first.")
             
+        # Before creating a new investment, check if the user already owns this asset
+        existing_res = supabase.table("investments").select("*").eq("user_id", request.user_id).eq("asset_id", request.asset_id).execute()
+        if existing_res.data:
+            return InvestResponse(
+                success=False, 
+                error="You already own this video. You need to invest more coins in the video instead of buying the same video twice."
+            )
+            
         asset = asset_res.data[0]
         asset_price = asset["current_price"]
         

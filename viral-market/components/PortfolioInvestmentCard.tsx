@@ -13,7 +13,7 @@ export default function PortfolioInvestmentCard({
     onPress
 }: PortfolioInvestmentCardProps) {
     const isPositive = investment.performance >= 0;
-    const performanceColor = isPositive ? '#4CAF50' : '#F44336';
+    const performanceColor = isPositive ? '#61C13F' : '#CB5A44';
 
     return (
         <TouchableOpacity
@@ -26,37 +26,35 @@ export default function PortfolioInvestmentCard({
                 style={styles.thumbnail}
             />
 
-            <View style={styles.content}>
-                <Text style={styles.username}>{investment.username}</Text>
-                <Text style={styles.investedAt}>invested {investment.investedAt}</Text>
+            <View style={styles.middleColumn}>
+                <Text style={styles.username}>@{investment.username.replace('@', '')}</Text>
+                <Text style={styles.investedAt}>Invested {investment.investedAt}</Text>
 
-                <View style={styles.stats}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="eye-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.viewsOnInvestment)}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="heart-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.likesOnInvestment)}</Text>
-                    </View>
+                <View style={styles.statRow}>
+                    <Ionicons name="eye" size={12} color="#888" />
+                    <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
+                </View>
+                <View style={styles.statRow}>
+                    <Ionicons name="heart" size={12} color="#888" />
+                    <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
                 </View>
             </View>
 
-            <View style={styles.performance}>
+            <View style={styles.rightColumn}>
                 <View style={[styles.badge, { backgroundColor: performanceColor }]}>
                     <Text style={styles.badgeText}>
                         {isPositive ? '+' : ''}{investment.performance.toFixed(1)}%
                     </Text>
                 </View>
 
-                <View style={styles.currentStats}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="eye" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
+                <View style={styles.rightStats}>
+                    <View style={styles.statRow}>
+                        <Ionicons name="eye" size={12} color="#888" />
+                        <Text style={styles.statText}>{formatNumber(investment.viewsOnInvestment)}</Text>
                     </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="heart" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
+                    <View style={styles.statRow}>
+                        <Ionicons name="heart" size={12} color="#888" />
+                        <Text style={styles.statText}>{formatNumber(investment.likesOnInvestment)}</Text>
                     </View>
                 </View>
             </View>
@@ -69,7 +67,7 @@ function formatNumber(num: number): string {
         return (num / 1000000).toFixed(1) + 'M';
     }
     if (num >= 1000) {
-        return (num / 1000).toFixed(0) + 'k';
+        return (num / 1000).toFixed(0) + 'K';
     }
     return num.toString();
 }
@@ -77,60 +75,67 @@ function formatNumber(num: number): string {
 const styles = StyleSheet.create({
     card: {
         flexDirection: 'row',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 12,
+        backgroundColor: '#EBEBEB',
+        borderRadius: 20,
         padding: 12,
-        marginBottom: 12,
+        marginBottom: 16,
         alignItems: 'center',
     },
     thumbnail: {
-        width: 60,
-        height: 60,
-        borderRadius: 8,
-        marginRight: 12,
+        width: 70,
+        height: 90,
+        borderRadius: 16,
+        marginRight: 16,
     },
-    content: {
+    middleColumn: {
         flex: 1,
+        justifyContent: 'center',
     },
     username: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#333',
+        color: '#555',
         marginBottom: 2,
+        fontFamily: 'Futura',
     },
     investedAt: {
-        fontSize: 12,
-        color: '#999',
-        marginBottom: 8,
+        fontSize: 11,
+        color: '#888',
+        fontStyle: 'italic',
+        marginBottom: 10,
     },
-    stats: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    statItem: {
+    statRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 6,
+        marginBottom: 4,
     },
     statText: {
-        fontSize: 12,
+        fontSize: 11,
+        fontWeight: '600',
         color: '#666',
+        fontFamily: 'Futura',
     },
-    performance: {
+    rightColumn: {
         alignItems: 'flex-end',
-        gap: 8,
+        justifyContent: 'space-between',
+        height: 80,
     },
     badge: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
+        marginBottom: 8,
     },
     badgeText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '700',
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: 'bold',
+        fontFamily: 'CircularStd',
     },
-    currentStats: {
-        gap: 4,
+    rightStats: {
+        alignItems: 'flex-start',
+        width: '100%',
+        paddingLeft: 4,
     },
 });

@@ -9,6 +9,7 @@ import {
     SafeAreaView,
     StatusBar,
     Alert,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,63 +85,54 @@ export default function PartyScreen() {
         setSelectedGroup(null);
     };
 
-    // If no group selected, show join/create screen
+    // If no group selected, show redesigned join/create screen
     if (!selectedGroup) {
         return (
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="dark-content" />
                 <View style={styles.joinCreateContainer}>
-                    <Text style={styles.mainTitle}>Join or Create a Party</Text>
+                    <Image
+                        source={require('../../assets/images/stackofcoins.png')}
+                        style={styles.coinsImage}
+                        resizeMode="contain"
+                    />
+                    <Text style={styles.mainTitle}>{'Join or\nCreate a\nParty'}</Text>
 
-                    <View style={styles.inputsContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter the code of an existing party..."
-                            placeholderTextColor="#C8C8C8"
-                            value={joinCode}
-                            onChangeText={setJoinCode}
-                            autoCapitalize="characters"
-                        />
+                    <View style={styles.inputsAndButton}>
+                        <View style={styles.inputsContainer}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter the code of an existing party..."
+                                placeholderTextColor="#B6B6B6"
+                                value={joinCode}
+                                onChangeText={setJoinCode}
+                                autoCapitalize="characters"
+                            />
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Create a fun name for a new party..."
-                            placeholderTextColor="#C8C8C8"
-                            value={partyName}
-                            onChangeText={setPartyName}
-                            autoCapitalize="words"
-                        />
-                    </View>
-
-                    {/* Show existing groups the user is already in */}
-                    {groups.length > 0 && (
-                        <View style={styles.existingGroups}>
-                            <Text style={styles.existingGroupsTitle}>Your Groups</Text>
-                            {groups.map((g) => (
-                                <TouchableOpacity
-                                    key={g.group_id}
-                                    style={styles.existingGroupItem}
-                                    onPress={() => setSelectedGroup(g)}
-                                >
-                                    <Text style={styles.existingGroupName}>{g.group_name}</Text>
-                                    <Text style={styles.existingGroupCode}>Code: {g.group_id}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Create a fun name for a new party..."
+                                placeholderTextColor="#B6B6B6"
+                                value={partyName}
+                                onChangeText={setPartyName}
+                                autoCapitalize="words"
+                            />
                         </View>
-                    )}
 
-                    <TouchableOpacity
-                        style={styles.nextButton}
-                        onPress={() => {
-                            if (joinCode.trim()) {
-                                handleJoinParty();
-                            } else if (partyName.trim()) {
-                                handleCreateParty();
-                            }
-                        }}
-                    >
-                        <Text style={styles.nextButtonText}>Next</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.nextButton}
+                            onPress={() => {
+                                if (joinCode.trim()) {
+                                    handleJoinParty();
+                                } else if (partyName.trim()) {
+                                    handleCreateParty();
+                                }
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.nextButtonText}>Next</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </SafeAreaView>
         );
@@ -209,87 +201,77 @@ export default function PartyScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#F9F8F6',
     },
     // Join/Create Screen Styles
     joinCreateContainer: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
-        paddingHorizontal: 24,
-        paddingTop: 60,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 32,
+        paddingTop: 120,
+    },
+    coinsImage: {
+        position: 'absolute',
+        top: -20,
+        right: -80,
+        width: 340,
+        height: 340,
+        opacity: 0.95,
     },
     mainTitle: {
-        fontSize: 56,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 40,
-        lineHeight: 64,
+        fontSize: 64,
+        fontWeight: '700',
+        color: '#333333',
+        marginTop: 120,
+        marginBottom: 48,
+        lineHeight: 68,
+        fontFamily: 'CircularStd',
+        letterSpacing: -1.5,
+        zIndex: 10,
+    },
+    inputsAndButton: {
+        flex: 1,
+        justifyContent: 'flex-start',
     },
     inputsContainer: {
-        gap: 16,
-        marginBottom: 24,
+        gap: 18,
+        marginBottom: 40,
+        zIndex: 10,
     },
     input: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 20,
+        backgroundColor: '#F3F3F3',
+        paddingHorizontal: 26,
         paddingVertical: 18,
         borderRadius: 28,
-        fontSize: 15,
-        color: '#333',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    existingGroups: {
-        marginBottom: 24,
-    },
-    existingGroupsTitle: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#4A9D8E',
-        marginBottom: 12,
-    },
-    existingGroupItem: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderRadius: 16,
-        marginBottom: 8,
+        color: '#444',
+        fontFamily: 'Futura',
+        fontStyle: 'italic',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
         elevation: 2,
-    },
-    existingGroupName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-    },
-    existingGroupCode: {
-        fontSize: 12,
-        color: '#999',
-        marginTop: 2,
     },
     nextButton: {
-        backgroundColor: '#4A9D8E',
+        backgroundColor: '#2D756F',
         paddingVertical: 18,
-        borderRadius: 28,
+        borderRadius: 20,
         alignItems: 'center',
         marginTop: 'auto',
-        marginBottom: 40,
+        marginBottom: 32,
+        zIndex: 10,
     },
     nextButtonText: {
         color: '#fff',
         fontSize: 17,
         fontWeight: '600',
+        fontFamily: 'Futura',
     },
     // Leaderboard Screen Styles
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#F9F8F6',
     },
     leaveButton: {
         flexDirection: 'row',
@@ -321,6 +303,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 4,
+        fontFamily: 'CircularStd',
     },
     memberCount: {
         fontSize: 14,
@@ -366,6 +349,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#4A9D8E',
         marginBottom: 16,
+        fontFamily: 'CircularStd',
     },
     memberCard: {
         flexDirection: 'row',

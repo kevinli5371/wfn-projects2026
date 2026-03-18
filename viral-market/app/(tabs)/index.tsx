@@ -169,9 +169,9 @@ export default function PortfolioScreen() {
                 : displayMode === 'views'
                   ? investments.reduce((sum, inv) => sum + (inv.currentViews - (inv.viewsOnInvestment || 0)), 0).toLocaleString('en-US')
                   : '$' + mockPortfolio.accountBalance.toLocaleString('en-US', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
             </Text>
             <TouchableOpacity
               style={styles.toggleButton}

@@ -394,9 +394,52 @@ async def get_portfolio(user_id: str):
 
 @app.post("/api/sell")
 async def sell_investment(user_id: str, investment_id: str):
+    """
+    User sells all shares of a specific investment.
+    Expects investment_id to be the asset_id (from the frontend's mapping)
+    """
     try:
-        return {"success": True, "message": "Sell endpoint - TODO: Implement"}
+        # Get the investment from the user's portfolio where asset_id matches the one passed
+        investments_res = supabase.table("investments").select("*").eq("user_id", user_id).eq("asset_id", investment_id).execute()
+        
+        if not investments_res.data:
+            raise HTTPException(status_code=404, detail="Investment not found in your portfolio.")
+        
+        # We might have multiple buys of the same asset. For now, sell the first one we find.
+        # In a real app, you might want to specify which lot to sell, or sell all lots.
+        # Here we sell all lots of this asset_id for simplicity to "remove it from portfolio".
+        
+        total_payout = 0
+        total_shares_sold = 0
+        
+        # Get current asset price
+        asset_res = supabase.table("videos").select("current_price").eq("asset_id", investment_id).execute()
+        if not asset_res.data:
+            raise HTTPException(status_code=404, detail="Asset data not found.")
+        current_price = asset_res.data[0]["current_price"]
+
+        for inv in investments_res.data:
+            shares = inv["shares_owned"]
+            payout = shares * current_price
+            total_payout += payout
+            total_shares_sold += shares
+            
+            # Delete this specific investment record
+            supabase.table("investments").delete().eq("investment_id", inv["investment_id"]).execute()
+
+        # Update User Balance
+        user_res = supabase.table("users").select("balance").eq("user_id", user_id).execute()
+        if user_res.data:
+            current_balance = user_res.data[0]["balance"]
+            new_balance = current_balance + total_payout
+            supabase.table("users").update({"balance": new_balance}).eq("user_id", user_id).execute()
+
+        return {"success": True, "message": f"Successfully sold {total_shares_sold:.2f} shares for ${total_payout:.2f}", "payout": total_payout}
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Sell error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

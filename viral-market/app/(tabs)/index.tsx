@@ -302,13 +302,50 @@ export default function PortfolioScreen() {
                 </Text>
                 
                 <View style={styles.tradeInfoBox}>
+                  {/* Shares & Price Row */}
                   <View style={styles.tradeRow}>
                     <Text style={styles.tradeLabel}>Shares Owned:</Text>
                     <Text style={styles.tradeValue}>{sellingInvestment.shares.toFixed(2)}</Text>
                   </View>
                   <View style={styles.tradeRow}>
                     <Text style={styles.tradeLabel}>Current Price:</Text>
-                    <Text style={styles.tradeValue}>${sellingInvestment.currentPrice.toFixed(2)}/share</Text>
+                    <Text style={styles.tradeValue}>${sellingInvestment.currentPrice.toFixed(2)}</Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  {/* Bought At Stats */}
+                  <Text style={styles.sectionHeading}>Bought At</Text>
+                  <View style={styles.statsRow}>
+                    <View style={styles.statChip}>
+                      <Ionicons name="eye-outline" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{(sellingInvestment.viewsOnInvestment / 1000).toFixed(1)}k</Text>
+                    </View>
+                    <View style={styles.statChip}>
+                      <Ionicons name="heart-outline" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{(sellingInvestment.likesOnInvestment / 1000).toFixed(1)}k</Text>
+                    </View>
+                  </View>
+
+                  {/* Current Stats */}
+                  <Text style={styles.sectionHeading}>Current</Text>
+                  <View style={styles.statsRow}>
+                    <View style={styles.statChip}>
+                      <Ionicons name="eye" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{(sellingInvestment.currentViews / 1000).toFixed(1)}k</Text>
+                    </View>
+                    <View style={styles.statChip}>
+                      <Ionicons name="heart" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{(sellingInvestment.currentLikes / 1000).toFixed(1)}k</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  {/* Profit/Loss Row */}
+                  <View style={styles.tradeRow}>
+                    <Text style={styles.tradeLabel}>Profit / Loss:</Text>
+                    <Text style={[styles.tradeValue, { color: '#666' }]}>$0.00</Text>
                   </View>
                 </View>
 
@@ -567,6 +604,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 12,
+  },
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  statChipText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
   },
   inputSection: {
     marginBottom: 24,

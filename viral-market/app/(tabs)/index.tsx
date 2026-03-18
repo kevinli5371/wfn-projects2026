@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { api, PortfolioResponse } from '@/services/api';
 import { ActivityIndicator, Alert } from 'react-native';
 import PerformanceChart from '@/components/PerformanceChart';
@@ -158,6 +159,7 @@ export default function PortfolioScreen() {
               const investResult = await api.investInVideo(userId, scrapeResult.asset_id!, 100);
 
               if (investResult.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert("Success", "Investment added to your portfolio!");
                 setSearchQuery('');
                 // Refresh portfolio
@@ -414,6 +416,7 @@ export default function PortfolioScreen() {
                       // Call backend API (sells entire position internally)
                       const result = await api.sellInvestment(userId, sellingInvestment.id);
                       if (result.success) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("Success", "Position cashed out successfully!");
                         fetchPortfolio(); // Refresh portfolio UI
                       } else {

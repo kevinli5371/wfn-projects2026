@@ -163,9 +163,15 @@ export default function PortfolioScreen() {
 
         {/* Account Balance */}
         <View style={styles.accountSection}>
-          <Text style={styles.accountLabel}>Your Account</Text>
+          <Text style={styles.accountLabel}>Net Worth</Text>
           <Text style={styles.balance}>
-            ${(portfolioData?.balance ?? user?.balance ?? 0).toLocaleString('en-US', {
+            ${((portfolioData?.balance ?? user?.balance ?? 0) + (portfolioData?.total_value ?? 0)).toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+          <Text style={styles.leftoverCoins}>
+            Leftover Coins: ${(portfolioData?.balance ?? user?.balance ?? 0).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -420,6 +426,12 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     color: '#333',
+  },
+  leftoverCoins: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+    fontWeight: '500',
   },
   chartStatsRow: {
     flexDirection: 'row',

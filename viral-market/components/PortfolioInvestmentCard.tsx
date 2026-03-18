@@ -44,6 +44,12 @@ export default function PortfolioInvestmentCard({
                         <Ionicons name="heart-outline" size={14} color="#666" />
                         <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
                     </View>
+                    <View style={styles.statItem}>
+                        <Text style={[styles.statText, { fontSize: 13 }]}>🪙</Text>
+                        <Text style={[styles.statText, { fontWeight: '600', color: '#333' }]}>
+                            {(investment.investedCoins * (1 + investment.performance / 100)).toFixed(2)}
+                        </Text>
+                    </View>
                 </View>
             </View>
 

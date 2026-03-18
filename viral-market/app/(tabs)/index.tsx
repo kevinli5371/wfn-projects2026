@@ -12,11 +12,15 @@ import {
   Linking,
   Modal,
   Image,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { api, PortfolioResponse } from '@/services/api';
+import { api, PortfolioResponse, ScrapeResponse } from '@/services/api';
 import { ActivityIndicator, Alert } from 'react-native';
 import PerformanceChart from '@/components/PerformanceChart';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
@@ -41,6 +45,10 @@ export default function PortfolioScreen() {
   // Sell Modal State
   const [sellingInvestment, setSellingInvestment] = useState<Investment | null>(null);
   const [sellAmountStr, setSellAmountStr] = useState('1');
+
+  // Invest Modal State
+  const [investingVideo, setInvestingVideo] = useState<ScrapeResponse | null>(null);
+  const [investAmountStr, setInvestAmountStr] = useState('100');
 
   // Use real authenticated user ID
   const userId = user?.userId ?? 'user1';
@@ -205,33 +213,10 @@ export default function PortfolioScreen() {
         return;
       }
 
-      // 2. Show confirmation
-      Alert.alert(
-        "Video Found!",
-        `Author: ${scrapeResult.author}\nViews: ${scrapeResult.views}\nLikes: ${scrapeResult.likes}\nPrice: $${scrapeResult.current_price?.toFixed(2)}`,
-        [
-          { text: "Cancel", style: "cancel", onPress: () => setIsLoading(false) },
-          {
-            text: "Invest (100 coins)",
-            onPress: async () => {
-              // 3. Invest
-              // Note: Using hardcoded 100 coins as per demo flow
-              const investResult = await api.investInVideo(userId, scrapeResult.asset_id!, 100);
-
-              if (investResult.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert("Success", "Investment added to your portfolio!");
-                setSearchQuery('');
-                // Refresh portfolio
-                fetchPortfolio();
-              } else {
-                Alert.alert("Investment Failed", investResult.error || "Unknown error");
-              }
-              setIsLoading(false);
-            }
-          }
-        ]
-      );
+      // 2. Show Invest Modal
+      setInvestingVideo(scrapeResult);
+      setInvestAmountStr('100');
+      setIsLoading(false);
 
     } catch (e) {
       Alert.alert("Error", "An unexpected network error occurred");
@@ -528,6 +513,101 @@ export default function PortfolioScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Invest Modal */}
+      <Modal
+        visible={!!investingVideo}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setInvestingVideo(null)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView 
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>New Investment</Text>
+                <TouchableOpacity onPress={() => setInvestingVideo(null)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              {investingVideo && (
+                <>
+                  <Text style={styles.modalSubtitle}>
+                    {investingVideo.author}'s Video
+                  </Text>
+
+                  <View style={styles.statsRow}>
+                    <View style={styles.statChip}>
+                      <Ionicons name="eye" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{((investingVideo.views || 0) / 1000).toFixed(1)}k</Text>
+                    </View>
+                    <View style={styles.statChip}>
+                      <Ionicons name="heart" size={14} color="#666" />
+                      <Text style={styles.statChipText}>{((investingVideo.likes || 0) / 1000).toFixed(1)}k</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputSection}>
+                    <Text style={styles.inputLabel}>Investment Amount (Coins)</Text>
+                    <TextInput
+                      style={styles.sharesInput}
+                      value={investAmountStr}
+                      onChangeText={setInvestAmountStr}
+                      keyboardType="numeric"
+                      placeholder="e.g. 100"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.confirmInvestButton, (!investAmountStr || isNaN(Number(investAmountStr))) && styles.disabledButton]}
+                    disabled={!investAmountStr || isNaN(Number(investAmountStr))}
+                    onPress={async () => {
+                      const amount = Number(investAmountStr);
+                      if (amount <= 0) {
+                        Alert.alert("Invalid Amount", "Please enter a valid coin amount.");
+                        return;
+                      }
+                      if (amount > ((portfolioData?.balance ?? user?.balance ?? 0))) {
+                        Alert.alert("Insufficient Balance", "You don't have enough coins for this investment.");
+                        return;
+                      }
+
+                      setIsLoading(true);
+                      setInvestingVideo(null); // Hide modal while loading
+
+                      try {
+                        const investResult = await api.investInVideo(userId, investingVideo.asset_id!, amount);
+
+                        if (investResult.success) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert("Success", "Investment added to your portfolio!");
+                          setSearchQuery('');
+                          fetchPortfolio(); // Refresh
+                        } else {
+                          Alert.alert("Investment Failed", investResult.error || "Unknown error");
+                          setInvestingVideo(investingVideo); // Re-open
+                        }
+                      } catch (e) {
+                        Alert.alert("Error", "An unexpected network error occurred.");
+                        setInvestingVideo(investingVideo);
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.confirmSellText}>Confirm Investment</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -811,6 +891,12 @@ const styles = StyleSheet.create({
   },
   confirmSellButton: {
     backgroundColor: '#F44336',
+    paddingVertical: 16,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  confirmInvestButton: {
+    backgroundColor: '#4A9D8E',
     paddingVertical: 16,
     borderRadius: 30,
     alignItems: 'center',

@@ -278,6 +278,14 @@ async def create_investment(request: InvestRequest):
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset not found. Please Search/Scrape first.")
             
+        # Before creating a new investment, check if the user already owns this asset
+        existing_res = supabase.table("investments").select("*").eq("user_id", request.user_id).eq("asset_id", request.asset_id).execute()
+        if existing_res.data:
+            return InvestResponse(
+                success=False, 
+                error="You already own this video. You need to invest more coins in the video instead of buying the same video twice."
+            )
+            
         asset = asset_res.data[0]
         asset_price = asset["current_price"]
         
@@ -730,6 +738,75 @@ async def get_user_groups(user_id: str):
     except Exception as e:
         print(f"Get groups error: {e}")
         return UserGroupsResponse(success=False, error=str(e))
+
+@app.get("/api/groups/{group_id}/leaderboard")
+async def get_group_leaderboard(group_id: str):
+    try:
+        # 1. Fetch the group to get members list
+        group_res = supabase.table("groups").select("members").eq("group_id", group_id).execute()
+        
+        if not group_res.data:
+            raise HTTPException(status_code=404, detail="Group not found.")
+            
+        members = group_res.data[0].get("members", [])
+        if not members:
+            return {"leaderboard": []}
+            
+        # 2. We need balances of all members and their investment values
+        users_res = supabase.table("users").select("*").in_("user_id", members).execute()
+        investments_res = supabase.table("investments").select("*").in_("user_id", members).execute()
+        videos_res = supabase.table("videos").select("asset_id, current_price").execute()
+        
+        videos_price_map = {v["asset_id"]: v["current_price"] for v in videos_res.data}
+        
+        user_portfolio_values = {}
+        for u in users_res.data:
+            user_portfolio_values[u["user_id"]] = {
+                "username": u.get("username", u["user_id"]),
+                "balance": u["balance"],
+                "total_invested": 0,
+                "total_value": 0
+            }
+            
+        for inv in investments_res.data:
+            uid = inv["user_id"]
+            if uid not in user_portfolio_values:
+                continue # Edge case, shouldn't happen based on foreign keys
+                
+            asset_id = inv["asset_id"]
+            shares = inv["shares_owned"]
+            buy_price = inv["buy_price"]
+            curr_price = videos_price_map.get(asset_id, buy_price)
+            
+            user_portfolio_values[uid]["total_invested"] += (shares * buy_price)
+            user_portfolio_values[uid]["total_value"] += (shares * curr_price)
+                
+        leaderboard = []
+        for uid, data in user_portfolio_values.items():
+            total_portfolio_value = data["balance"] + data["total_value"]
+            
+            p_l_percent = 0
+            if data["total_invested"] > 0:
+                p_l_percent = ((data["total_value"] - data["total_invested"]) / data["total_invested"]) * 100
+
+            leaderboard.append({
+                "user_id": uid,
+                "username": data["username"],
+                "portfolio_value": total_portfolio_value,
+                "profit_loss_percent": p_l_percent
+            })
+            
+        leaderboard.sort(key=lambda x: x["portfolio_value"], reverse=True)
+        
+        for i, entry in enumerate(leaderboard):
+            entry["rank"] = i + 1
+            
+        return {
+            "leaderboard": leaderboard
+        }
+    except Exception as e:
+        print(f"Group leaderboard error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============ ADD VIDEO ENDPOINT ============

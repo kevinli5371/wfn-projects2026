@@ -12,7 +12,8 @@ import {
     Modal,
     Image,
     ActivityIndicator,
-    Linking
+    Linking,
+    RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,7 @@ export default function PartyScreen() {
     const [isPortfolioLoading, setIsPortfolioLoading] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const userId = user?.userId ?? 'user1';
 
@@ -74,6 +76,18 @@ export default function PartyScreen() {
             }
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const onRefresh = async () => {
+        if (!selectedGroup) return;
+        setIsRefreshing(true);
+        try {
+            await loadGroupLeaderboard(selectedGroup.group_id);
+            // Also refresh overall groups list in background
+            loadGroups();
+        } finally {
+            setIsRefreshing(false);
         }
     };
 
@@ -252,7 +266,18 @@ export default function PartyScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" />
-            <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.container} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#4A9D8E"
+                        colors={['#4A9D8E']}
+                    />
+                }
+            >
                 {/* Top Header Row */}
                 <View style={styles.topHeaderRow}>
                     <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>

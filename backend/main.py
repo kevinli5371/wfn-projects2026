@@ -645,6 +645,10 @@ async def get_leaderboard():
             
             # Use High-Frequency Formula for leaderboard accuracy
             current_views = videos_info_map.get(asset_id, {}).get("views", 0)
+            cost_basis = inv.get("cost_basis", 0)
+            buy_price = inv.get("buy_price", 1.0)
+            timestamp = inv.get("timestamp", datetime.utcnow().isoformat())
+            views = videos_views_map.get(asset_id, 0)
             
             val = calculate_valuation(
                 cost_basis=cost_basis,
@@ -973,9 +977,9 @@ async def get_group_leaderboard(group_id: str):
         # 2. We need balances of all members and their investment values
         users_res = supabase.table("users").select("*").in_("user_id", members).execute()
         investments_res = supabase.table("investments").select("*").in_("user_id", members).execute()
-        videos_res = supabase.table("videos").select("asset_id, current_price").execute()
+        videos_res = supabase.table("videos").select("asset_id, views").execute()
         
-        videos_price_map = {v["asset_id"]: v["current_price"] for v in videos_res.data}
+        videos_views_map = {v["asset_id"]: v.get("views", 0) for v in videos_res.data}
         
         user_portfolio_values = {}
         for u in users_res.data:
@@ -994,12 +998,20 @@ async def get_group_leaderboard(group_id: str):
                 continue # Edge case, shouldn't happen based on foreign keys
                 
             asset_id = inv["asset_id"]
-            shares = inv["shares_owned"]
-            buy_price = inv["buy_price"]
-            curr_price = videos_price_map.get(asset_id, buy_price)
+            cost_basis = inv.get("cost_basis", 0)
+            buy_price = inv.get("buy_price", 1.0)
+            timestamp = inv.get("timestamp", datetime.utcnow().isoformat())
+            views = videos_views_map.get(asset_id, 0)
             
-            user_portfolio_values[uid]["total_invested"] += (shares * buy_price)
-            user_portfolio_values[uid]["total_value"] += (shares * curr_price)
+            val = calculate_valuation(
+                cost_basis=cost_basis,
+                buy_tier=buy_price,
+                current_views=views,
+                start_time_iso=timestamp
+            )
+            
+            user_portfolio_values[uid]["total_invested"] += cost_basis
+            user_portfolio_values[uid]["total_value"] += val
                 
         leaderboard = []
         for uid, data in user_portfolio_values.items():

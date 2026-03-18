@@ -274,7 +274,7 @@ export const api = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Refresh videos error:', error);
+            console.warn('Refresh videos error (likely timeout or server restart):', error);
             return { success: false, updated: [], errors: [] };
         }
     },

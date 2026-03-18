@@ -25,6 +25,7 @@ export default function PortfolioScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
   const [sortBy, setSortBy] = useState<SortOption>('performance');
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [displayMode, setDisplayMode] = useState<'money' | 'likes' | 'views'>('money');
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isInvestModalVisible, setIsInvestModalVisible] = useState(false);
   const [scrapedVideoInfo, setScrapedVideoInfo] = useState<any>(null);
@@ -158,13 +159,36 @@ export default function PortfolioScreen() {
 
         {/* Account Balance */}
         <View style={styles.accountSection}>
-          <Text style={styles.accountLabel}>Your Account</Text>
-          <Text style={styles.balance}>
-            ${mockPortfolio.accountBalance.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+          <Text style={styles.accountLabel}>
+            {displayMode === 'likes' ? 'Likes Gained' : displayMode === 'views' ? 'Views Gained' : 'Your Account'}
           </Text>
+          <View style={styles.balanceRow}>
+            <Text style={styles.balance}>
+              {displayMode === 'likes'
+                ? investments.reduce((sum, inv) => sum + (inv.currentLikes - (inv.likesOnInvestment || 0)), 0).toLocaleString('en-US')
+                : displayMode === 'views'
+                  ? investments.reduce((sum, inv) => sum + (inv.currentViews - (inv.viewsOnInvestment || 0)), 0).toLocaleString('en-US')
+                  : '$' + mockPortfolio.accountBalance.toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+            </Text>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => {
+                if (displayMode === 'money') setDisplayMode('likes');
+                else if (displayMode === 'likes') setDisplayMode('views');
+                else setDisplayMode('money');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={displayMode === 'likes' ? 'eye-outline' : displayMode === 'views' ? 'cash-outline' : 'heart-outline'}
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Chart and Stats Row */}
@@ -388,6 +412,20 @@ const styles = StyleSheet.create({
   accountSection: {
     paddingHorizontal: 24,
     paddingVertical: 12,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#4A9D8E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
   },
   accountLabel: {
     fontSize: 18,

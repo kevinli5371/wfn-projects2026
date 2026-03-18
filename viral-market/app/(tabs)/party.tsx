@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, GroupInfo } from '@/services/api';
 import { Investment } from '@/constants/data';
+import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
 
 export default function PartyScreen() {
     const { user } = useAuth();
@@ -105,8 +106,8 @@ export default function PartyScreen() {
                     investedAt: 'Recently',
                     thumbnail: item.thumbnail || `https://picsum.photos/seed/${item.asset_id}/200/300`,
                     videoUrl: item.video_url,
-                    viewsOnInvestment: item.views || 0,
-                    likesOnInvestment: item.likes || 0,
+                    viewsOnInvestment: item.views_at_purchase || 0,
+                    likesOnInvestment: item.likes_at_purchase || 0,
                     currentViews: item.views || 0,
                     currentLikes: item.likes || 0,
                     performance: item.profit_loss_percent,
@@ -383,10 +384,9 @@ export default function PartyScreen() {
                         ) : (
                             <ScrollView style={styles.portfolioScroll}>
                                 {memberPortfolio.map(inv => (
-                                    <TouchableOpacity 
-                                        key={inv.id} 
-                                        style={styles.portfolioItem}
-                                        activeOpacity={0.7}
+                                    <PortfolioInvestmentCard
+                                        key={inv.id}
+                                        investment={inv}
                                         onPress={() => {
                                             if (inv.videoUrl) {
                                                 Linking.openURL(inv.videoUrl).catch(err => {
@@ -397,23 +397,7 @@ export default function PartyScreen() {
                                                 Alert.alert("Notice", "No link available for this video.");
                                             }
                                         }}
-                                    >
-                                        <Image source={{ uri: inv.thumbnail }} style={styles.portfolioThumb} />
-                                        <View style={styles.portfolioDetails}>
-                                            <Text style={styles.portfolioUsername}>{inv.username}'s Video</Text>
-                                            <Text style={styles.portfolioInvested}>
-                                                Invested: {inv.investedCoins.toFixed(2)} coins
-                                            </Text>
-                                        </View>
-                                        <View style={styles.portfolioPerformance}>
-                                            <Text style={[
-                                                styles.perfRate,
-                                                { color: inv.performance >= 0 ? '#4A9D8E' : '#E74C3C' }
-                                            ]}>
-                                                {inv.performance >= 0 ? '+' : ''}{inv.performance.toFixed(1)}%
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
+                                    />
                                 ))}
                             </ScrollView>
                         )}

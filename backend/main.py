@@ -80,6 +80,8 @@ class PortfolioItem(BaseModel):
     profit_loss_percent: float
     views: int = 0
     likes: int = 0
+    views_at_purchase: int = 0
+    likes_at_purchase: int = 0
     thumbnail: str = ""
     view_history: Optional[List[dict]] = None
     like_history: Optional[List[dict]] = None
@@ -355,7 +357,9 @@ async def create_investment(request: InvestRequest):
             "shares_owned": shares,
             "buy_price": asset_price,
             "cost_basis": request.amount_coins,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "views_at_purchase": asset.get("views", 0),
+            "likes_at_purchase": asset.get("likes", 0)
         }).execute()
         
         return InvestResponse(
@@ -453,6 +457,8 @@ async def get_portfolio(user_id: str):
                 profit_loss_percent=p_l_percent,
                 views=views,
                 likes=likes,
+                views_at_purchase=inv.get("views_at_purchase", 0),
+                likes_at_purchase=inv.get("likes_at_purchase", 0),
                 thumbnail=thumbnail,
                 view_history=view_history,
                 like_history=like_history
@@ -496,8 +502,8 @@ async def sell_investment(user_id: str, investment_id: str):
         total_payout = 0
         total_shares_sold = 0
         
-        # Get current asset price
-        asset_res = supabase.table("videos").select("current_price").eq("asset_id", investment_id).execute()
+        # Get current asset price and views
+        asset_res = supabase.table("videos").select("current_price, views").eq("asset_id", investment_id).execute()
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset data not found.")
         asset_data = asset_res.data[0]
@@ -523,14 +529,24 @@ async def sell_investment(user_id: str, investment_id: str):
             # Delete this specific investment record
             supabase.table("investments").delete().eq("investment_id", inv["investment_id"]).execute()
 
+        # Apply 1% transaction fee
+        transaction_fee = total_payout * 0.01
+        net_payout = total_payout - transaction_fee
+
         # Update User Balance
         user_res = supabase.table("users").select("balance").eq("user_id", user_id).execute()
         if user_res.data:
             current_balance = user_res.data[0]["balance"]
-            new_balance = current_balance + total_payout
+            new_balance = current_balance + net_payout
             supabase.table("users").update({"balance": new_balance}).eq("user_id", user_id).execute()
 
-        return {"success": True, "message": f"Successfully sold {total_shares_sold:.2f} shares for ${total_payout:.2f}", "payout": total_payout}
+        return {
+            "success": True, 
+            "message": f"Successfully sold {total_shares_sold:.2f} shares for ${net_payout:.2f} (fee: ${transaction_fee:.2f})", 
+            "payout": net_payout,
+            "fee": transaction_fee,
+            "gross_payout": total_payout
+        }
         
     except HTTPException:
         raise

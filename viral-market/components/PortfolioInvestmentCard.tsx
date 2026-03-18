@@ -17,6 +17,9 @@ export default function PortfolioInvestmentCard({
     const isPositive = investment.performance >= 0;
     const performanceColor = isPositive ? '#4CAF50' : '#F44336';
 
+    const viewsDelta = investment.currentViews - investment.viewsOnInvestment;
+    const likesDelta = investment.currentLikes - investment.likesOnInvestment;
+
     return (
         <TouchableOpacity
             style={styles.card}
@@ -35,11 +38,11 @@ export default function PortfolioInvestmentCard({
                 <View style={styles.stats}>
                     <View style={styles.statItem}>
                         <Ionicons name="eye-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.viewsOnInvestment)}</Text>
+                        <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
                     </View>
                     <View style={styles.statItem}>
                         <Ionicons name="heart-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.likesOnInvestment)}</Text>
+                        <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
                     </View>
                 </View>
             </View>
@@ -53,12 +56,16 @@ export default function PortfolioInvestmentCard({
 
                 <View style={styles.currentStats}>
                     <View style={styles.statItem}>
-                        <Ionicons name="eye" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
+                        <Ionicons name="eye" size={14} color={viewsDelta >= 0 ? '#4CAF50' : '#F44336'} />
+                        <Text style={[styles.statText, { color: viewsDelta >= 0 ? '#4CAF50' : '#F44336' }]}>
+                            {viewsDelta >= 0 ? '+' : ''}{formatNumber(viewsDelta)}
+                        </Text>
                     </View>
                     <View style={styles.statItem}>
-                        <Ionicons name="heart" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
+                        <Ionicons name="heart" size={14} color={likesDelta >= 0 ? '#4CAF50' : '#F44336'} />
+                        <Text style={[styles.statText, { color: likesDelta >= 0 ? '#4CAF50' : '#F44336' }]}>
+                            {likesDelta >= 0 ? '+' : ''}{formatNumber(likesDelta)}
+                        </Text>
                     </View>
                 </View>
 

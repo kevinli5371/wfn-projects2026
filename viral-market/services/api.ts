@@ -36,6 +36,8 @@ export interface PortfolioItem {
     profit_loss_percent: number;
     views: number;
     likes: number;
+    views_at_purchase: number;
+    likes_at_purchase: number;
     thumbnail: string;
     view_history?: { timestamp: string; count: number }[];
     like_history?: { timestamp: string; count: number }[];

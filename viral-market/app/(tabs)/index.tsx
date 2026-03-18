@@ -130,8 +130,8 @@ export default function PortfolioScreen() {
             investedAt: 'Recently',
             thumbnail: item.thumbnail || `https://picsum.photos/seed/${item.asset_id}/200/300`,
             videoUrl: item.video_url,
-            viewsOnInvestment: item.views || 0,
-            likesOnInvestment: item.likes || 0,
+            viewsOnInvestment: item.views_at_purchase || 0,
+            likesOnInvestment: item.likes_at_purchase || 0,
             currentViews: item.views || 0,
             currentLikes: item.likes || 0,
             performance: item.profit_loss_percent,
@@ -465,7 +465,32 @@ export default function PortfolioScreen() {
 
                   <View style={styles.tradeRow}>
                     <Text style={styles.tradeLabel}>Profit / Loss:</Text>
-                    <Text style={[styles.tradeValue, { color: '#666' }]}>0.00%</Text>
+                    <Text style={[styles.tradeValue, { color: sellingInvestment.performance >= 0 ? '#4A9D8E' : '#E74C3C' }]}>
+                      {sellingInvestment.performance >= 0 ? '+' : ''}{sellingInvestment.performance.toFixed(2)}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.tradeRow}>
+                    <Text style={styles.tradeLabel}>Sale Value:</Text>
+                    <Text style={styles.tradeValue}>
+                      🪙 {(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100)).toFixed(2)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tradeRow}>
+                    <Text style={[styles.tradeLabel, { color: '#E74C3C' }]}>Transaction Fee (1%):</Text>
+                    <Text style={[styles.tradeValue, { color: '#E74C3C' }]}>
+                      -{(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100) * 0.01).toFixed(2)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.tradeRow}>
+                    <Text style={[styles.tradeLabel, { fontWeight: '700' }]}>You'll Receive:</Text>
+                    <Text style={[styles.tradeValue, { fontSize: 20, fontWeight: '800', color: '#333' }]}>
+                      🪙 {(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100) * 0.99).toFixed(2)}
+                    </Text>
                   </View>
                 </View>
 

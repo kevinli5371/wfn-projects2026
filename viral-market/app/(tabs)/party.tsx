@@ -157,6 +157,35 @@ export default function PartyScreen() {
         setSelectedGroup(null);
     };
 
+    const handleQuitParty = () => {
+        Alert.alert(
+            "Leave Group",
+            `Are you sure you want to leave ${selectedGroup?.group_name}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Leave", 
+                    style: "destructive",
+                    onPress: async () => {
+                        if (!selectedGroup) return;
+                        setIsLoading(true);
+                        try {
+                            const res = await api.leaveGroup(userId, selectedGroup.group_id);
+                            if (res.success) {
+                                setSelectedGroup(null);
+                                loadGroups();
+                            } else {
+                                Alert.alert("Error", res.error || "Could not leave group");
+                            }
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     // If no group selected, show join/create screen
     if (!selectedGroup) {
         return (
@@ -224,11 +253,18 @@ export default function PartyScreen() {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-                {/* Back Button */}
-                <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
-                    <Text style={styles.leaveButtonText}>Back to Groups</Text>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
-                </TouchableOpacity>
+                {/* Top Header Row */}
+                <View style={styles.topHeaderRow}>
+                    <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
+                        <Ionicons name="chevron-back" size={20} color="#666" />
+                        <Text style={styles.leaveButtonText}>Back to Groups</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.quitButtonSmall} onPress={handleQuitParty}>
+                        <Ionicons name="exit-outline" size={16} color="#E74C3C" />
+                        <Text style={styles.quitButtonText}>Leave</Text>
+                    </TouchableOpacity>
+                </View>
 
                 {/* Party Header */}
                 <View style={styles.partyHeader}>
@@ -243,10 +279,6 @@ export default function PartyScreen() {
                         <Text style={styles.codeLabel}>Group Code:</Text>
                         <Text style={styles.codeValue}>{selectedGroup.group_id}</Text>
                     </View>
-                    <TouchableOpacity style={styles.inviteButton}>
-                        <Ionicons name="add" size={16} color="#fff" />
-                        <Text style={styles.inviteButtonText}>Invite</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Members Section */}
@@ -448,12 +480,16 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5F5F5',
     },
+    topHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 16,
+    },
     leaveButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        alignSelf: 'flex-end',
-        paddingHorizontal: 20,
-        paddingTop: 16,
         gap: 4,
     },
     leaveButtonText: {
@@ -500,17 +536,17 @@ const styles = StyleSheet.create({
         color: '#4A9D8E',
         letterSpacing: 2,
     },
-    inviteButton: {
+    quitButtonSmall: {
         flexDirection: 'row',
-        backgroundColor: '#4A9D8E',
-        paddingHorizontal: 20,
-        paddingVertical: 8,
-        borderRadius: 20,
+        backgroundColor: '#FFEAEA',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
         alignItems: 'center',
         gap: 4,
     },
-    inviteButtonText: {
-        color: '#fff',
+    quitButtonText: {
+        color: '#E74C3C',
         fontSize: 14,
         fontWeight: '600',
     },

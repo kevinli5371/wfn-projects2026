@@ -177,6 +177,20 @@ export const api = {
         }
     },
 
+    leaveGroup: async (userId: string, groupId: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/groups/leave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, group_id: groupId }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Leave group error:', error);
+            return { success: false, error: 'Network error' };
+        }
+    },
+
     getUserGroups: async (userId: string): Promise<{ success: boolean; groups: GroupInfo[] }> => {
         try {
             const response = await fetch(`${BASE_URL}/api/groups/${userId}`);

@@ -717,6 +717,35 @@ async def join_group(request: JoinGroupRequest):
         print(f"Join group error: {e}")
         return GroupResponse(success=False, error=str(e))
 
+class LeaveGroupRequest(BaseModel):
+    user_id: str
+    group_id: str
+
+@app.post("/api/groups/leave", response_model=GroupResponse)
+async def leave_group(request: LeaveGroupRequest):
+    try:
+        group_res = supabase.table("groups").select("*").eq("group_id", request.group_id).execute()
+        if not group_res.data:
+            return GroupResponse(success=False, error="Group not found")
+        
+        group = group_res.data[0]
+        members = group.get("members", [])
+        
+        if request.user_id in members:
+            members.remove(request.user_id)
+            
+            if not members:
+                # Group is empty, delete it
+                supabase.table("groups").delete().eq("group_id", request.group_id).execute()
+            else:
+                # Update members list
+                supabase.table("groups").update({"members": members}).eq("group_id", request.group_id).execute()
+                
+        return GroupResponse(success=True)
+    except Exception as e:
+        print(f"Leave group error: {e}")
+        return GroupResponse(success=False, error=str(e))
+
 
 @app.get("/api/groups/{user_id}", response_model=UserGroupsResponse)
 async def get_user_groups(user_id: str):

@@ -11,7 +11,8 @@ import {
     Alert,
     Modal,
     Image,
-    ActivityIndicator
+    ActivityIndicator,
+    Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -321,7 +322,21 @@ export default function PartyScreen() {
                         ) : (
                             <ScrollView style={styles.portfolioScroll}>
                                 {memberPortfolio.map(inv => (
-                                    <View key={inv.id} style={styles.portfolioItem}>
+                                    <TouchableOpacity 
+                                        key={inv.id} 
+                                        style={styles.portfolioItem}
+                                        activeOpacity={0.7}
+                                        onPress={() => {
+                                            if (inv.videoUrl) {
+                                                Linking.openURL(inv.videoUrl).catch(err => {
+                                                    console.error("Failed to open URL:", err);
+                                                    Alert.alert("Error", "Could not open this link.");
+                                                });
+                                            } else {
+                                                Alert.alert("Notice", "No link available for this video.");
+                                            }
+                                        }}
+                                    >
                                         <Image source={{ uri: inv.thumbnail }} style={styles.portfolioThumb} />
                                         <View style={styles.portfolioDetails}>
                                             <Text style={styles.portfolioUsername}>{inv.username}'s Video</Text>
@@ -337,7 +352,7 @@ export default function PartyScreen() {
                                                 {inv.performance >= 0 ? '+' : ''}{inv.performance.toFixed(1)}%
                                             </Text>
                                         </View>
-                                    </View>
+                                    </TouchableOpacity>
                                 ))}
                             </ScrollView>
                         )}

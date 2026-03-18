@@ -84,6 +84,8 @@ class PortfolioItem(BaseModel):
     views: int = 0
     likes: int = 0
     thumbnail: str = ""
+    view_history: Optional[List[dict]] = None
+    like_history: Optional[List[dict]] = None
 
 class PortfolioResponse(BaseModel):
     user_id: str
@@ -211,8 +213,24 @@ def scrape_video(request: ScrapeRequest):
         asset_id = f"asset_{author}_{views}"
 
         thumbnail = data.get("thumbnail", "")
+        current_time = datetime.utcnow().isoformat()
 
         # ✅ Save to Supabase (Upsert in case it was already scraped)
+        # We fetch existing history first to avoid overwriting it if the video was already scraped
+        existing_res = supabase.table("videos").select("view_history, like_history").eq("asset_id", asset_id).execute()
+        
+        if existing_res.data and existing_res.data[0].get("view_history"):
+            # Update existing totals but keep/append history if we wanted to (though scrape is usually for new videos)
+            # For scrape_video, if it exists, we might just want to update current stats.
+            # But the user said "when the video is scraped, info is added to history".
+            # If it already exists, let's append to be safe, or just initialize if empty.
+            hist = existing_res.data[0]
+            view_hist = (hist.get("view_history") or []) + [{"count": views, "timestamp": current_time}]
+            like_hist = (hist.get("like_history") or []) + [{"count": likes, "timestamp": current_time}]
+        else:
+            view_hist = [{"count": views, "timestamp": current_time}]
+            like_hist = [{"count": likes, "timestamp": current_time}]
+
         supabase.table("videos").upsert({
             "asset_id": asset_id,
             "video_url": video_url,
@@ -220,7 +238,9 @@ def scrape_video(request: ScrapeRequest):
             "views": views,
             "likes": likes,
             "current_price": current_price,
-            "thumbnail": thumbnail
+            "thumbnail": thumbnail,
+            "view_history": view_hist,
+            "like_history": like_hist
         }).execute()
         
         return ScrapeResponse(
@@ -358,6 +378,8 @@ async def get_portfolio(user_id: str):
             views = asset_info.get("views", 0) if asset_info else 0
             likes = asset_info.get("likes", 0) if asset_info else 0
             thumbnail = asset_info.get("thumbnail", "") if asset_info else ""
+            view_history = asset_info.get("view_history", []) if asset_info else []
+            like_history = asset_info.get("like_history", []) if asset_info else []
             
             item = PortfolioItem(
                 asset_id=asset_id,
@@ -371,7 +393,9 @@ async def get_portfolio(user_id: str):
                 profit_loss_percent=p_l_percent,
                 views=views,
                 likes=likes,
-                thumbnail=thumbnail
+                thumbnail=thumbnail,
+                view_history=view_history,
+                like_history=like_history
             )
             portfolio_items.append(item)
             
@@ -442,6 +466,80 @@ async def sell_investment(user_id: str, investment_id: str):
         print(f"Sell error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class RefreshRequest(BaseModel):
+    asset_ids: List[str]
+
+@app.post("/api/videos/refresh")
+def refresh_videos(request: RefreshRequest):
+    """
+    Re-scrape each video and update views/likes/price in Supabase.
+    Maintains historical JSON logs for charts.
+    Runs scrapes in parallel to minimize total wait time.
+    """
+    if not request.asset_ids:
+        return {"success": True, "updated": [], "errors": []}
+
+    vid_res = supabase.table("videos").select(
+        "asset_id, video_url, view_history, like_history"
+    ).in_("asset_id", request.asset_ids).execute()
+    
+    asset_url_map = {v["asset_id"]: v["video_url"] for v in vid_res.data}
+    asset_history_map = {
+        v["asset_id"]: {
+            "view_history": v.get("view_history") or [],
+            "like_history": v.get("like_history") or []
+        } for v in vid_res.data
+    }
+
+    def scrape_and_update(asset_id: str):
+        video_url = asset_url_map.get(asset_id)
+        if not video_url:
+            return {"asset_id": asset_id, "success": False, "error": "Asset not found"}
+        try:
+            data = get_tiktok_data(video_url)
+            if not data or "error" in data:
+                return {"asset_id": asset_id, "success": False, "error": data.get("error", "Scrape failed")}
+
+            views = int(data.get("views", 0))
+            likes = int(data.get("likes", 0))
+            current_price = views / 1000
+
+            current_time = datetime.utcnow().isoformat()
+
+            history = asset_history_map.get(asset_id, {"view_history": [], "like_history": []})
+            new_view_record = {"count": views, "timestamp": current_time}
+            new_like_record = {"count": likes, "timestamp": current_time}
+            
+            updated_view_history = history["view_history"] + [new_view_record]
+            updated_like_history = history["like_history"] + [new_like_record]
+
+            supabase.table("videos").update({
+                "views": views,
+                "likes": likes,
+                "current_price": current_price,
+                "view_history": updated_view_history,
+                "like_history": updated_like_history,
+            }).eq("asset_id", asset_id).execute()
+
+            return {"asset_id": asset_id, "success": True}
+        except Exception as e:
+            return {"asset_id": asset_id, "success": False, "error": str(e)}
+
+    updated = []
+    errors = []
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(scrape_and_update, aid): aid for aid in request.asset_ids}
+        for future in as_completed(futures):
+            result = future.result()
+            if result["success"]:
+                updated.append(result)
+            else:
+                errors.append(result)
+
+    return {"success": True, "updated": updated, "errors": errors}
 
 @app.post("/api/assets/refresh")
 async def refresh_asset_prices():

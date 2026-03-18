@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   TextInput,
   SafeAreaView,
@@ -30,6 +31,7 @@ export default function PortfolioScreen() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
   
   // Sell Modal State
@@ -71,7 +73,9 @@ export default function PortfolioScreen() {
             performance: item.profit_loss_percent,
             shares: item.shares || 0,
             currentPrice: item.current_price || 0,
-            investedCoins: (item.shares || 0) * (item.buy_price || 0)
+            investedCoins: (item.shares || 0) * (item.buy_price || 0),
+            viewHistory: item.view_history || [],
+            likeHistory: item.like_history || []
           }));
           setInvestments(mappedInvestments);
         }
@@ -80,6 +84,26 @@ export default function PortfolioScreen() {
       console.error("Failed to fetch portfolio", e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    if (investments.length === 0) {
+      await fetchPortfolio();
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      const assetIds = investments.map(inv => inv.id);
+      console.log('Refreshing', assetIds.length, 'videos...');
+      const refreshResult = await api.refreshVideos(assetIds);
+      console.log('Refresh result:', refreshResult);
+      // Now re-fetch portfolio with updated prices and history arrays
+      await fetchPortfolio();
+    } catch (e) {
+      console.error('Refresh failed:', e);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -152,7 +176,19 @@ export default function PortfolioScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#4A9D8E"
+            title="Refreshing data & histories..."
+            titleColor="#4A9D8E"
+          />
+        }
+      >
         {/* Header Section */}
         <View style={styles.header}>
           <Text style={styles.greeting}>Hello {username},</Text>

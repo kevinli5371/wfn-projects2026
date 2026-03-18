@@ -37,6 +37,8 @@ export interface PortfolioItem {
     views: number;
     likes: number;
     thumbnail: string;
+    view_history?: { timestamp: string; count: number }[];
+    like_history?: { timestamp: string; count: number }[];
 }
 
 export interface PortfolioResponse {
@@ -171,6 +173,20 @@ export const api = {
         } catch (error) {
             console.error('Get groups error:', error);
             return { success: false, groups: [] };
+        }
+    },
+
+    refreshVideos: async (assetIds: string[]): Promise<{ success: boolean; updated: any[]; errors: any[] }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/videos/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ asset_ids: assetIds }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Refresh videos error:', error);
+            return { success: false, updated: [], errors: [] };
         }
     },
 };

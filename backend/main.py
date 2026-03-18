@@ -655,7 +655,12 @@ async def get_group_leaderboard(group_id: str):
         
         user_portfolio_values = {}
         for u in users_res.data:
-            user_portfolio_values[u["user_id"]] = u["balance"]
+            user_portfolio_values[u["user_id"]] = {
+                "username": u.get("username", u["user_id"]),
+                "balance": u["balance"],
+                "total_invested": 0,
+                "total_value": 0
+            }
             
         for inv in investments_res.data:
             uid = inv["user_id"]
@@ -664,15 +669,25 @@ async def get_group_leaderboard(group_id: str):
                 
             asset_id = inv["asset_id"]
             shares = inv["shares_owned"]
-            curr_price = videos_price_map.get(asset_id, inv["buy_price"])
-            val = shares * curr_price
-            user_portfolio_values[uid] += val
+            buy_price = inv["buy_price"]
+            curr_price = videos_price_map.get(asset_id, buy_price)
+            
+            user_portfolio_values[uid]["total_invested"] += (shares * buy_price)
+            user_portfolio_values[uid]["total_value"] += (shares * curr_price)
                 
         leaderboard = []
-        for uid, total_val in user_portfolio_values.items():
+        for uid, data in user_portfolio_values.items():
+            total_portfolio_value = data["balance"] + data["total_value"]
+            
+            p_l_percent = 0
+            if data["total_invested"] > 0:
+                p_l_percent = ((data["total_value"] - data["total_invested"]) / data["total_invested"]) * 100
+
             leaderboard.append({
-                "username": uid, # In a real app we'd map this to actual username or display_name
-                "portfolio_value": total_val
+                "user_id": uid,
+                "username": data["username"],
+                "portfolio_value": total_portfolio_value,
+                "profit_loss_percent": p_l_percent
             })
             
         leaderboard.sort(key=lambda x: x["portfolio_value"], reverse=True)

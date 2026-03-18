@@ -76,13 +76,13 @@ export default function PartyScreen() {
         }
     };
 
-    const openMemberPortfolio = async (memberUsername: string) => {
+    const openMemberPortfolio = async (memberUserId: string, memberUsername: string) => {
         setViewingMember(memberUsername);
         setIsPortfolioLoading(true);
         try {
             // Note: In a real app we might pass user_id instead of username, 
             // but for now we'll fetch portfolio via the username that we show
-            const data = await api.getPortfolio(memberUsername);
+            const data = await api.getPortfolio(memberUserId);
             if (data && data.investments) {
                 const mappedInvestments: Investment[] = data.investments.map(item => ({
                     id: item.asset_id,
@@ -255,10 +255,10 @@ export default function PartyScreen() {
                     {leaderboard.length > 0 ? (
                         leaderboard.map((member) => (
                             <TouchableOpacity 
-                                key={member.username} 
+                                key={member.user_id} 
                                 style={styles.memberCard}
                                 activeOpacity={0.7}
-                                onPress={() => openMemberPortfolio(member.username)}
+                                onPress={() => openMemberPortfolio(member.user_id, member.username)}
                             >
                                 <View style={styles.memberLeft}>
                                     <View style={[styles.rankBadge, member.rank <= 3 ? styles[(`rankBadge${member.rank}`) as keyof typeof styles] as any : null]}>
@@ -279,6 +279,13 @@ export default function PartyScreen() {
                                 <View style={styles.memberRight}>
                                     <Text style={styles.portfolioValue}>
                                         ${member.portfolio_value.toFixed(2)}
+                                    </Text>
+                                    <Text style={[
+                                        styles.memberPL,
+                                        { color: member.profit_loss_percent >= 0 ? '#4A9D8E' : '#E74C3C' }
+                                    ]}>
+                                        {member.profit_loss_percent >= 0 ? '+' : ''}
+                                        {member.profit_loss_percent?.toFixed(2) || '0.00'}%
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -572,11 +579,17 @@ const styles = StyleSheet.create({
     },
     memberRight: {
         alignItems: 'flex-end',
+        justifyContent: 'center',
     },
     portfolioValue: {
         fontSize: 16,
         fontWeight: '700',
         color: '#4A9D8E',
+    },
+    memberPL: {
+        fontSize: 13,
+        fontWeight: '600',
+        marginTop: 2,
     },
     bottomSpacer: {
         height: 100,

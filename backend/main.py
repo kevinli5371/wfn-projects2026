@@ -1,9 +1,4 @@
-"""
-Viral Market - FastAPI Backend
-Main application file with all API endpoints
-"""
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
@@ -632,9 +627,10 @@ async def get_leaderboard():
         # We need balances of all users and their investment values
         users_res = supabase.table("users").select("*").execute()
         investments_res = supabase.table("investments").select("*").execute()
-        videos_res = supabase.table("videos").select("asset_id, current_price").execute()
+        videos_res = supabase.table("videos").select("asset_id, current_price, views").execute()
         
-        videos_price_map = {v["asset_id"]: v["current_price"] for v in videos_res.data}
+        videos_info_map = {v["asset_id"]: v for v in videos_res.data}
+        users_map = {u["user_id"]: u for u in users_res.data}
         
         user_portfolio_values = {}
         for u in users_res.data:
@@ -642,22 +638,37 @@ async def get_leaderboard():
             
         for inv in investments_res.data:
             uid = inv["user_id"]
+            cost_basis = inv["cost_basis"]
+            buy_price = inv["buy_price"]
+            timestamp = inv["timestamp"]
             asset_id = inv["asset_id"]
-            shares = inv["shares_owned"]
-            curr_price = videos_price_map.get(asset_id, inv["buy_price"])
-            val = shares * curr_price
+            
+            # Use High-Frequency Formula for leaderboard accuracy
+            current_views = videos_info_map.get(asset_id, {}).get("views", 0)
+            
+            val = calculate_valuation(
+                cost_basis=cost_basis,
+                buy_tier=buy_price,
+                current_views=current_views,
+                start_time_iso=timestamp
+            )
+            
             if uid in user_portfolio_values:
                 user_portfolio_values[uid] += val
                 
         leaderboard = []
         for uid, total_val in user_portfolio_values.items():
+            user_info = users_map.get(uid, {})
             leaderboard.append({
-                "username": uid,
+                "user_id": uid,
+                "username": user_info.get("username", uid),
+                "display_name": user_info.get("display_name") or user_info.get("username", uid),
+                "profile_picture_url": user_info.get("profile_picture_url"),
                 "portfolio_value": total_val
             })
             
         leaderboard.sort(key=lambda x: x["portfolio_value"], reverse=True)
-        
+        # Add rank
         for i, entry in enumerate(leaderboard):
             entry["rank"] = i + 1
             

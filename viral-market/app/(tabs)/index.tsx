@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ export default function PortfolioScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
+  const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
   
   // Sell Modal State
   const [sellingInvestment, setSellingInvestment] = useState<Investment | null>(null);
@@ -46,6 +47,69 @@ export default function PortfolioScreen() {
   const displayName = user?.display_name ?? username;
   const profilePictureUrl = user?.profile_picture_url;
 
+  // Auto-refresh logic state
+  const isAutoRefreshing = useRef(false);
+  const lastScrapeTimeMap = useRef<{ [key: string]: number }>({});
+  const investmentsRef = useRef<Investment[]>([]);
+
+  // Update ref whenever investments change so autoRefresh has latest data
+  useEffect(() => {
+    investmentsRef.current = investments;
+  }, [investments]);
+
+  useEffect(() => {
+    fetchPortfolio();
+
+    // Polling interval: every 10 seconds
+    const interval = setInterval(() => {
+      runAutoRefresh();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  const runAutoRefresh = async () => {
+    // Prevent overlapping runs
+    if (isAutoRefreshing.current) return;
+    isAutoRefreshing.current = true;
+    setIsBackgroundLoading(true);
+
+    try {
+      // 1. Always re-fetch portfolio to update UI with latest decay/growth
+      await fetchPortfolio(true);
+
+      // 2. Refresh each video that hasn't been scraped in > 10 seconds
+      if (investmentsRef.current.length > 0) {
+        const now = Date.now();
+        const staleAssetIds = investmentsRef.current
+          .filter(inv => {
+            const lastTime = lastScrapeTimeMap.current[inv.id] || 0;
+            return now - lastTime >= 10000;
+          })
+          .map(inv => inv.id);
+
+        if (staleAssetIds.length > 0) {
+          console.log(`[AutoRefresh] Updating ${staleAssetIds.length} stale videos...`);
+          const refreshResult = await api.refreshVideos(staleAssetIds);
+          
+          if (refreshResult.success) {
+            // Update the map for these IDs
+            staleAssetIds.forEach(id => {
+              lastScrapeTimeMap.current[id] = Date.now();
+            });
+            // Final fetch to catch the new scraped data
+            await fetchPortfolio(true);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[AutoRefresh] Error during update:", e);
+    } finally {
+      isAutoRefreshing.current = false;
+      setIsBackgroundLoading(false);
+    }
+  };
+
   // Chart data based on portfolio balance (static shape for now)
   const chartData = [
     { x: 0, y: 1000 },
@@ -53,12 +117,8 @@ export default function PortfolioScreen() {
     { x: 2, y: portfolioData ? portfolioData.balance + portfolioData.total_value : 1000 },
   ];
 
-  React.useEffect(() => {
-    fetchPortfolio();
-  }, [userId]);
-
-  const fetchPortfolio = async () => {
-    setIsLoading(true);
+  const fetchPortfolio = async (silent: boolean = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const data = await api.getPortfolio(userId);
       if (data) {
@@ -87,7 +147,7 @@ export default function PortfolioScreen() {
     } catch (e) {
       console.error("Failed to fetch portfolio", e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -180,6 +240,11 @@ export default function PortfolioScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
+      {isBackgroundLoading && (
+        <View style={styles.topLoadingBarContainer}>
+          <View style={styles.topLoadingBar} />
+        </View>
+      )}
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
@@ -358,13 +423,13 @@ export default function PortfolioScreen() {
                 <Text style={styles.modalSubtitle}>
                   {sellingInvestment.username}'s Video
                 </Text>
-                
+
                 <View style={styles.tradeInfoBox}>
                   {/* Investment Row */}
                   <View style={styles.tradeRow}>
                     <Text style={styles.tradeLabel}>Invested Coins:</Text>
                     <Text style={[styles.tradeValue, { fontSize: 18, color: '#4A9D8E' }]}>
-                       {(sellingInvestment.investedCoins).toFixed(2)}
+                      {(sellingInvestment.investedCoins).toFixed(2)}
                     </Text>
                   </View>
 
@@ -404,12 +469,12 @@ export default function PortfolioScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.confirmSellButton}
                   onPress={async () => {
                     setIsLoading(true);
                     setSellingInvestment(null);
-                    
+
                     try {
                       // Call backend API (sells entire position internally)
                       const result = await api.sellInvestment(userId, sellingInvestment.id);
@@ -729,5 +794,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '600',
+  },
+  topLoadingBarContainer: {
+    position: 'absolute',
+    top: 50, // Slightly below safe area top
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(74, 157, 142, 0.1)',
+    zIndex: 2000,
+  },
+  topLoadingBar: {
+    height: '100%',
+    width: '40%', // Animated width or just a pulse
+    backgroundColor: '#4A9D8E',
+    borderRadius: 3,
   },
 });

@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     // Join/Create Screen Styles
     joinCreateContainer: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F9F8F6',
         paddingHorizontal: 32,
         paddingTop: 120,
     },

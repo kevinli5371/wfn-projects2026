@@ -12,4 +12,5 @@ export interface Investment {
     performance: number; // percentage change
     shares: number;
     currentPrice: number;
+    investedCoins: number;
 }

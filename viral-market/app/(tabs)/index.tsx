@@ -71,6 +71,7 @@ export default function PortfolioScreen() {
             performance: item.profit_loss_percent,
             shares: item.shares || 0,
             currentPrice: item.current_price || 0,
+            investedCoins: (item.shares || 0) * (item.buy_price || 0)
           }));
           setInvestments(mappedInvestments);
         }
@@ -302,14 +303,12 @@ export default function PortfolioScreen() {
                 </Text>
                 
                 <View style={styles.tradeInfoBox}>
-                  {/* Shares & Price Row */}
+                  {/* Investment Row */}
                   <View style={styles.tradeRow}>
-                    <Text style={styles.tradeLabel}>Shares Owned:</Text>
-                    <Text style={styles.tradeValue}>{sellingInvestment.shares.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.tradeRow}>
-                    <Text style={styles.tradeLabel}>Current Price:</Text>
-                    <Text style={styles.tradeValue}>${sellingInvestment.currentPrice.toFixed(2)}</Text>
+                    <Text style={styles.tradeLabel}>Invested Coins:</Text>
+                    <Text style={[styles.tradeValue, { fontSize: 18, color: '#4A9D8E' }]}>
+                       {(sellingInvestment.investedCoins).toFixed(2)}
+                    </Text>
                   </View>
 
                   <View style={styles.divider} />
@@ -342,53 +341,26 @@ export default function PortfolioScreen() {
 
                   <View style={styles.divider} />
 
-                  {/* Profit/Loss Row */}
                   <View style={styles.tradeRow}>
                     <Text style={styles.tradeLabel}>Profit / Loss:</Text>
-                    <Text style={[styles.tradeValue, { color: '#666' }]}>$0.00</Text>
+                    <Text style={[styles.tradeValue, { color: '#666' }]}>0.00%</Text>
                   </View>
                 </View>
 
-                <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>Shares to Sell</Text>
-                  <TextInput
-                    style={styles.sharesInput}
-                    keyboardType="numeric"
-                    value={sellAmountStr}
-                    onChangeText={setSellAmountStr}
-                    placeholder="0"
-                  />
-                  <Text style={styles.estimatedPayout}>
-                    Estimated Payout: ${(
-                      (parseFloat(sellAmountStr) || 0) * sellingInvestment.currentPrice
-                    ).toFixed(2)}
-                  </Text>
-                </View>
-
                 <TouchableOpacity 
-                  style={[
-                    styles.confirmSellButton, 
-                    (!parseFloat(sellAmountStr) || parseFloat(sellAmountStr) <= 0 || parseFloat(sellAmountStr) > sellingInvestment.shares) && styles.disabledButton
-                  ]}
-                  disabled={!parseFloat(sellAmountStr) || parseFloat(sellAmountStr) <= 0 || parseFloat(sellAmountStr) > sellingInvestment.shares}
+                  style={styles.confirmSellButton}
                   onPress={async () => {
-                    const amountToSell = parseFloat(sellAmountStr);
-                    if (!amountToSell || amountToSell <= 0 || amountToSell > sellingInvestment.shares) {
-                      Alert.alert("Invalid Amount", "Please enter a valid number of shares to sell.");
-                      return;
-                    }
-
                     setIsLoading(true);
                     setSellingInvestment(null);
                     
                     try {
-                      // Call backend API
+                      // Call backend API (sells entire position internally)
                       const result = await api.sellInvestment(userId, sellingInvestment.id);
                       if (result.success) {
-                        Alert.alert("Success", "Shares sold successfully!");
+                        Alert.alert("Success", "Position cashed out successfully!");
                         fetchPortfolio(); // Refresh portfolio UI
                       } else {
-                        Alert.alert("Error", result.error || "Failed to sell shares");
+                        Alert.alert("Error", result.error || "Failed to sell position");
                         setSellingInvestment(sellingInvestment); // Re-open if failed
                       }
                     } catch (error) {

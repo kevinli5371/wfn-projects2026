@@ -13,6 +13,8 @@ import random
 import string
 import uuid
 from datetime import datetime
+import math
+import pytz
 from app.services.supabase_client import supabase
 from app.services.scraper import get_tiktok_data
 
@@ -178,6 +180,52 @@ async def health_check():
         "message": "All systems operational",
         "timestamp": datetime.utcnow().isoformat()
     }
+
+# ---- Valuation Formula ----
+HOURLY_DECAY_RATE = 0.01
+
+def calculate_valuation(cost_basis: float, buy_tier: float, current_views: int, start_time_iso: str) -> float:
+    """
+    Multiplier = log10(T_curr / T_entry + 9) * (0.99)^h
+    V_curr = cost_basis * Multiplier
+    h = hours elapsed (float)
+    """
+    try:
+        T_curr = current_views / 1000.0
+        T_entry = buy_tier
+        
+        # Safety: avoid division by zero or weird values
+        if T_entry <= 0:
+            T_entry = 1.0 # Default to 1k views if unknown
+            
+        # log10(T_curr / T_entry + 9)
+        # If T_curr == T_entry, log10(1 + 9) = log10(10) = 1.0
+        growth_multiplier = math.log10((T_curr / T_entry) + 9)
+        
+        # Calculate hours elapsed
+        try:
+            iso_str = start_time_iso.replace('Z', '+00:00')
+            start_time = datetime.fromisoformat(iso_str)
+        except ValueError:
+            start_time = datetime.utcnow().replace(tzinfo=pytz.UTC)
+
+        if start_time.tzinfo is None:
+            start_time = pytz.UTC.localize(start_time)
+            
+        now = datetime.now(pytz.UTC)
+        delta = now - start_time
+        hours_elapsed = delta.total_seconds() / 3600.0
+        
+        # (0.99)^h
+        decay_multiplier = math.pow((1 - HOURLY_DECAY_RATE), hours_elapsed)
+        
+        final_multiplier = growth_multiplier * decay_multiplier
+        v_curr = cost_basis * final_multiplier
+        
+        return max(0.01, round(v_curr, 2))
+    except Exception as e:
+        print(f"Valuation Error: {e}")
+        return cost_basis
 
 @app.post("/api/scrape", response_model=ScrapeResponse)
 def scrape_video(request: ScrapeRequest):
@@ -376,18 +424,25 @@ async def get_portfolio(user_id: str):
             buy_price = inv["buy_price"]
             cost_basis = inv["cost_basis"]
             
-            curr_val = shares * current_price
-            p_l = curr_val - cost_basis
-            p_l_percent = (p_l / cost_basis * 100) if cost_basis > 0 else 0
-            
-            total_invested += cost_basis
-            total_value += curr_val
-            
             views = asset_info.get("views", 0) if asset_info else 0
             likes = asset_info.get("likes", 0) if asset_info else 0
             thumbnail = asset_info.get("thumbnail", "") if asset_info else ""
             view_history = asset_info.get("view_history", []) if asset_info else []
             like_history = asset_info.get("like_history", []) if asset_info else []
+
+            # Use High-Frequency Formula
+            curr_val = calculate_valuation(
+                cost_basis=cost_basis,
+                buy_tier=buy_price,
+                current_views=views,
+                start_time_iso=inv["timestamp"]
+            )
+            
+            p_l = curr_val - cost_basis
+            p_l_percent = (p_l / cost_basis * 100) if cost_basis > 0 else 0
+            
+            total_invested += cost_basis
+            total_value += curr_val
             
             item = PortfolioItem(
                 asset_id=asset_id,
@@ -448,11 +503,23 @@ async def sell_investment(user_id: str, investment_id: str):
         asset_res = supabase.table("videos").select("current_price").eq("asset_id", investment_id).execute()
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset data not found.")
-        current_price = asset_res.data[0]["current_price"]
+        asset_data = asset_res.data[0]
+        current_views = asset_data.get("views", 0)
 
         for inv in investments_res.data:
             shares = inv["shares_owned"]
-            payout = shares * current_price
+            cost_basis = inv["cost_basis"]
+            buy_price = inv["buy_price"]
+            timestamp = inv["timestamp"]
+            
+            # Payout based on High-Frequency Formula
+            payout = calculate_valuation(
+                cost_basis=cost_basis,
+                buy_tier=buy_price,
+                current_views=current_views,
+                start_time_iso=timestamp
+            )
+            
             total_payout += payout
             total_shares_sold += shares
             

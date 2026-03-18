@@ -521,51 +521,72 @@ async def get_portfolio(user_id: str):
 
 
 @app.post("/api/sell")
-async def sell_investment(user_id: str, investment_id: str):
+async def sell_investment(user_id: str, investment_id: str, amount_coins: float = None):
     """
-    User sells all shares of a specific investment.
+    User sells all or part of a specific investment.
     Expects investment_id to be the asset_id (from the frontend's mapping)
     """
     try:
-        # Get the investment from the user's portfolio where asset_id matches the one passed
         investments_res = supabase.table("investments").select("*").eq("user_id", user_id).eq("asset_id", investment_id).execute()
         
         if not investments_res.data:
             raise HTTPException(status_code=404, detail="Investment not found in your portfolio.")
         
-        # We might have multiple buys of the same asset. For now, sell the first one we find.
-        # In a real app, you might want to specify which lot to sell, or sell all lots.
-        # Here we sell all lots of this asset_id for simplicity to "remove it from portfolio".
-        
-        total_payout = 0
-        total_shares_sold = 0
-        
-        # Get current asset price and views
         asset_res = supabase.table("videos").select("current_price, views").eq("asset_id", investment_id).execute()
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset data not found.")
         asset_data = asset_res.data[0]
         current_views = asset_data.get("views", 0)
 
+        # First pass to calculate total value of this asset position
+        calculated_tranches = []
+        total_current_value = 0.0
+        
         for inv in investments_res.data:
             shares = inv["shares_owned"]
             cost_basis = inv["cost_basis"]
             buy_price = inv["buy_price"]
             timestamp = inv["timestamp"]
             
-            # Payout based on High-Frequency Formula
             payout = calculate_valuation(
                 cost_basis=cost_basis,
                 buy_tier=buy_price,
                 current_views=current_views,
                 start_time_iso=timestamp
             )
+            total_current_value += payout
+            calculated_tranches.append({"inv": inv, "payout": payout})
+
+        # Determine sell ratio
+        sell_ratio = 1.0
+        if amount_coins is not None and amount_coins > 0:
+            if total_current_value > 0:
+                sell_ratio = min(amount_coins / total_current_value, 1.0)
+            else:
+                sell_ratio = 1.0
+                
+        total_payout = 0.0
+        total_shares_sold = 0.0
+
+        for item in calculated_tranches:
+            inv = item["inv"]
+            original_payout = item["payout"]
             
-            total_payout += payout
-            total_shares_sold += shares
+            realized_payout = original_payout * sell_ratio
+            shares_sold = inv["shares_owned"] * sell_ratio
             
-            # Delete this specific investment record
-            supabase.table("investments").delete().eq("investment_id", inv["investment_id"]).execute()
+            total_payout += realized_payout
+            total_shares_sold += shares_sold
+            
+            if sell_ratio >= 0.999:
+                supabase.table("investments").delete().eq("investment_id", inv["investment_id"]).execute()
+            else:
+                new_shares = inv["shares_owned"] - shares_sold
+                new_cost_basis = inv["cost_basis"] * (1 - sell_ratio)
+                supabase.table("investments").update({
+                    "shares_owned": new_shares,
+                    "cost_basis": new_cost_basis
+                }).eq("investment_id", inv["investment_id"]).execute()
 
         # Apply 1% transaction fee
         transaction_fee = total_payout * 0.01

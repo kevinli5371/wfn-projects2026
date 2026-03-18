@@ -119,9 +119,13 @@ export const api = {
         }
     },
 
-    sellInvestment: async (userId: string, assetId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    sellInvestment: async (userId: string, assetId: string, amountCoins?: number): Promise<{ success: boolean; message?: string; error?: string }> => {
         try {
-            const response = await fetch(`${BASE_URL}/api/sell?user_id=${userId}&investment_id=${assetId}`, {
+            let url = `${BASE_URL}/api/sell?user_id=${userId}&investment_id=${assetId}`;
+            if (amountCoins !== undefined) {
+                url += `&amount_coins=${amountCoins}`;
+            }
+            const response = await fetch(url, {
                 method: 'POST',
             });
             return await response.json();

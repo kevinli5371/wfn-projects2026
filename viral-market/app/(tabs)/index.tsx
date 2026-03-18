@@ -376,7 +376,8 @@ export default function PortfolioScreen() {
               }}
               onSellPress={() => {
                 setSellingInvestment(investment);
-                setSellAmountStr(investment.shares.toString());
+                const totalStakeValue = investment.investedCoins * (1 + investment.performance / 100);
+                setSellAmountStr(totalStakeValue.toFixed(2));
               }}
               onBuyPress={() => {
                 setIsAdditionalBuy(true);
@@ -411,8 +412,12 @@ export default function PortfolioScreen() {
         animationType="slide"
         onRequestClose={() => setSellingInvestment(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView 
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Sell Investment</Text>
               <TouchableOpacity onPress={() => setSellingInvestment(null)}>
@@ -473,16 +478,28 @@ export default function PortfolioScreen() {
                   </View>
 
                   <View style={styles.tradeRow}>
-                    <Text style={styles.tradeLabel}>Sale Value:</Text>
-                    <Text style={styles.tradeValue}>
+                    <Text style={[styles.tradeLabel, { fontWeight: '600' }]}>Total Stake Value:</Text>
+                    <Text style={[styles.tradeValue, { fontWeight: '600' }]}>
                       🪙 {(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100)).toFixed(2)}
                     </Text>
+                  </View>
+
+                  <View style={[styles.inputSection, { marginTop: 12, marginBottom: 4 }]}>
+                    <Text style={styles.inputLabel}>Amount to Sell (Coins)</Text>
+                    <TextInput
+                      style={styles.sharesInput}
+                      value={sellAmountStr}
+                      onChangeText={setSellAmountStr}
+                      keyboardType="numeric"
+                      placeholder="e.g. 50"
+                      placeholderTextColor="#999"
+                    />
                   </View>
 
                   <View style={styles.tradeRow}>
                     <Text style={[styles.tradeLabel, { color: '#E74C3C' }]}>Transaction Fee (1%):</Text>
                     <Text style={[styles.tradeValue, { color: '#E74C3C' }]}>
-                      -{(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100) * 0.01).toFixed(2)}
+                      -{(Number(sellAmountStr) * 0.01 || 0).toFixed(2)}
                     </Text>
                   </View>
 
@@ -491,20 +508,28 @@ export default function PortfolioScreen() {
                   <View style={styles.tradeRow}>
                     <Text style={[styles.tradeLabel, { fontWeight: '700' }]}>You'll Receive:</Text>
                     <Text style={[styles.tradeValue, { fontSize: 20, fontWeight: '800', color: '#333' }]}>
-                      🪙 {(sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100) * 0.99).toFixed(2)}
+                      🪙 {(Number(sellAmountStr) * 0.99 || 0).toFixed(2)}
                     </Text>
                   </View>
                 </View>
 
                 <TouchableOpacity
-                  style={styles.confirmSellButton}
+                  style={[styles.confirmSellButton, (!sellAmountStr || isNaN(Number(sellAmountStr))) && styles.disabledButton]}
+                  disabled={!sellAmountStr || isNaN(Number(sellAmountStr))}
                   onPress={async () => {
+                    const amount = Number(sellAmountStr);
+                    const maxValue = sellingInvestment.investedCoins * (1 + sellingInvestment.performance / 100);
+                    
+                    if (amount <= 0 || amount > maxValue + 0.01) {
+                      Alert.alert("Invalid Amount", "Please enter an amount greater than 0 and up to your total stake value.");
+                      return;
+                    }
+
                     setIsLoading(true);
                     setSellingInvestment(null);
 
                     try {
-                      // Call backend API (sells entire position internally)
-                      const result = await api.sellInvestment(userId, sellingInvestment.id);
+                      const result = await api.sellInvestment(userId, sellingInvestment.id, amount);
                       if (result.success) {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("Success", "Position cashed out successfully!");
@@ -525,8 +550,9 @@ export default function PortfolioScreen() {
                 </TouchableOpacity>
               </>
             )}
-          </View>
-        </View>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Invest Modal */}

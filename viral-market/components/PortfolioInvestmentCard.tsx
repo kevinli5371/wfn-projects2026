@@ -7,12 +7,14 @@ interface PortfolioInvestmentCardProps {
     investment: Investment;
     onPress?: () => void;
     onSellPress?: () => void;
+    onBuyPress?: () => void;
 }
 
 export default function PortfolioInvestmentCard({
     investment,
     onPress,
-    onSellPress
+    onSellPress,
+    onBuyPress
 }: PortfolioInvestmentCardProps) {
     const isPositive = investment.performance >= 0;
     const performanceColor = isPositive ? '#4CAF50' : '#F44336';
@@ -75,14 +77,25 @@ export default function PortfolioInvestmentCard({
                     </View>
                 </View>
 
-                {onSellPress && (
-                    <TouchableOpacity style={styles.sellButton} onPress={(e) => {
-                        e.stopPropagation(); // Prevent card tap
-                        onSellPress();
-                    }}>
-                        <Text style={styles.sellButtonText}>Sell</Text>
-                    </TouchableOpacity>
-                )}
+                <View style={styles.actionButtonsRow}>
+                    {onBuyPress && (
+                        <TouchableOpacity style={styles.buyButton} onPress={(e) => {
+                            e.stopPropagation();
+                            onBuyPress();
+                        }}>
+                            <Text style={styles.buyButtonText}>Buy</Text>
+                        </TouchableOpacity>
+                    )}
+                    
+                    {onSellPress && (
+                        <TouchableOpacity style={styles.sellButton} onPress={(e) => {
+                            e.stopPropagation(); // Prevent card tap
+                            onSellPress();
+                        }}>
+                            <Text style={styles.sellButtonText}>Sell</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -157,8 +170,25 @@ const styles = StyleSheet.create({
     currentStats: {
         gap: 4,
     },
-    sellButton: {
+    actionButtonsRow: {
+        flexDirection: 'row',
+        gap: 8,
         marginTop: 4,
+    },
+    buyButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#E8F5E9',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
+    },
+    buyButtonText: {
+        color: '#4CAF50',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    sellButton: {
         paddingHorizontal: 12,
         paddingVertical: 6,
         backgroundColor: '#FFEAEA',

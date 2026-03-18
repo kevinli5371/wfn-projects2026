@@ -98,7 +98,7 @@ export const api = {
         }
     },
 
-    investInVideo: async (userId: string, assetId: string, amountCoins: number): Promise<InvestResponse> => {
+    investInVideo: async (userId: string, assetId: string, amountCoins: number, isAdditionalBuy: boolean = false): Promise<InvestResponse> => {
         try {
             const response = await fetch(`${BASE_URL}/api/invest`, {
                 method: 'POST',
@@ -109,6 +109,7 @@ export const api = {
                     user_id: userId,
                     asset_id: assetId,
                     amount_coins: amountCoins,
+                    is_additional_buy: isAdditionalBuy,
                 }),
             });
             return await response.json();

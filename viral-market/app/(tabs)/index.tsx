@@ -49,6 +49,7 @@ export default function PortfolioScreen() {
   // Invest Modal State
   const [investingVideo, setInvestingVideo] = useState<ScrapeResponse | null>(null);
   const [investAmountStr, setInvestAmountStr] = useState('100');
+  const [isAdditionalBuy, setIsAdditionalBuy] = useState(false);
 
   // Use real authenticated user ID
   const userId = user?.userId ?? 'user1';
@@ -214,6 +215,7 @@ export default function PortfolioScreen() {
       }
 
       // 2. Show Invest Modal
+      setIsAdditionalBuy(false);
       setInvestingVideo(scrapeResult);
       setInvestAmountStr('100');
       setIsLoading(false);
@@ -375,6 +377,19 @@ export default function PortfolioScreen() {
               onSellPress={() => {
                 setSellingInvestment(investment);
                 setSellAmountStr(investment.shares.toString());
+              }}
+              onBuyPress={() => {
+                setIsAdditionalBuy(true);
+                setInvestingVideo({
+                  success: true,
+                  asset_id: investment.id,
+                  video_url: investment.videoUrl,
+                  views: investment.currentViews,
+                  likes: investment.currentLikes,
+                  author: investment.username,
+                  current_price: investment.currentPrice,
+                });
+                setInvestAmountStr('100');
               }}
             />
           ))}
@@ -581,7 +596,7 @@ export default function PortfolioScreen() {
                       setInvestingVideo(null); // Hide modal while loading
 
                       try {
-                        const investResult = await api.investInVideo(userId, investingVideo.asset_id!, amount);
+                        const investResult = await api.investInVideo(userId, investingVideo.asset_id!, amount, isAdditionalBuy);
 
                         if (investResult.success) {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

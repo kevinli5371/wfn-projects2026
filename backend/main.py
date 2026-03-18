@@ -58,6 +58,7 @@ class InvestRequest(BaseModel):
     user_id: str
     asset_id: str
     amount_coins: float
+    is_additional_buy: bool = False
 
 class InvestResponse(BaseModel):
     success: bool
@@ -325,13 +326,14 @@ async def create_investment(request: InvestRequest):
         if not asset_res.data:
             raise HTTPException(status_code=404, detail="Asset not found. Please Search/Scrape first.")
             
-        # Before creating a new investment, check if the user already owns this asset
-        existing_res = supabase.table("investments").select("*").eq("user_id", request.user_id).eq("asset_id", request.asset_id).execute()
-        if existing_res.data:
-            return InvestResponse(
-                success=False, 
-                error="You already own this video. You need to invest more coins in the video instead of buying the same video twice."
-            )
+        # Before creating a new investment, check if the user already owns this asset (if not buying more intentionally)
+        if not request.is_additional_buy:
+            existing_res = supabase.table("investments").select("*").eq("user_id", request.user_id).eq("asset_id", request.asset_id).execute()
+            if existing_res.data:
+                return InvestResponse(
+                    success=False, 
+                    error="You already own this video. You need to invest more coins in the video instead of buying the same video twice."
+                )
             
         asset = asset_res.data[0]
         asset_price = asset["current_price"]
@@ -412,6 +414,8 @@ async def get_portfolio(user_id: str):
         else:
             print("   -> No assets to fetch")
         
+        aggregated_items = {}
+        
         print("4. Calculating portfolio totals and P/L for each investment...")
         for inv in user_investments:
             asset_id = inv["asset_id"]
@@ -440,28 +444,62 @@ async def get_portfolio(user_id: str):
             )
             
             p_l = curr_val - cost_basis
-            p_l_percent = (p_l / cost_basis * 100) if cost_basis > 0 else 0
             
             total_invested += cost_basis
             total_value += curr_val
             
+            if asset_id not in aggregated_items:
+                aggregated_items[asset_id] = {
+                    "asset_id": asset_id,
+                    "video_url": video_url,
+                    "author": author,
+                    "shares": 0.0,
+                    "buy_price": 0.0,
+                    "current_price": current_price,
+                    "current_value": 0.0,
+                    "profit_loss": 0.0,
+                    "profit_loss_percent": 0.0,
+                    "views": views,
+                    "likes": likes,
+                    "views_at_purchase": inv.get("views_at_purchase", 0),
+                    "likes_at_purchase": inv.get("likes_at_purchase", 0),
+                    "thumbnail": thumbnail,
+                    "view_history": view_history,
+                    "like_history": like_history,
+                    "_total_cost_basis": 0.0
+                }
+            
+            agg = aggregated_items[asset_id]
+            agg["shares"] += shares
+            agg["current_value"] += curr_val
+            agg["profit_loss"] += p_l
+            agg["_total_cost_basis"] += cost_basis
+            # Keep the oldest purchase views/likes (assuming sorted by time or just first encountered)
+        
+        # Convert aggregated dict into PortfolioItem list
+        for agg in aggregated_items.values():
+            cost_basis = agg["_total_cost_basis"]
+            if cost_basis > 0:
+                agg["profit_loss_percent"] = (agg["profit_loss"] / cost_basis) * 100
+                agg["buy_price"] = cost_basis / agg["shares"] if agg["shares"] > 0 else 0.0
+            
             item = PortfolioItem(
-                asset_id=asset_id,
-                video_url=video_url,
-                author=author,
-                shares=shares,
-                buy_price=buy_price,
-                current_price=current_price,
-                current_value=curr_val,
-                profit_loss=p_l,
-                profit_loss_percent=p_l_percent,
-                views=views,
-                likes=likes,
-                views_at_purchase=inv.get("views_at_purchase", 0),
-                likes_at_purchase=inv.get("likes_at_purchase", 0),
-                thumbnail=thumbnail,
-                view_history=view_history,
-                like_history=like_history
+                asset_id=agg["asset_id"],
+                video_url=agg["video_url"],
+                author=agg["author"],
+                shares=agg["shares"],
+                buy_price=agg["buy_price"],
+                current_price=agg["current_price"],
+                current_value=agg["current_value"],
+                profit_loss=agg["profit_loss"],
+                profit_loss_percent=agg["profit_loss_percent"],
+                views=agg["views"],
+                likes=agg["likes"],
+                views_at_purchase=agg["views_at_purchase"],
+                likes_at_purchase=agg["likes_at_purchase"],
+                thumbnail=agg["thumbnail"],
+                view_history=agg["view_history"],
+                like_history=agg["like_history"]
             )
             portfolio_items.append(item)
             

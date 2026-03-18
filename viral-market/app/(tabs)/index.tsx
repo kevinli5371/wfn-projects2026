@@ -243,13 +243,16 @@ export default function PortfolioScreen() {
             </TouchableOpacity>
           </View>
 
-          {sortedInvestments.map((investment) => (
+          {sortedInvestments.map((investment, index) => (
             <PortfolioInvestmentCard
-              key={investment.id}
+              key={`${investment.id}-${index}`}
               investment={investment}
               onPress={() => {
                 if (investment.videoUrl) {
-                  Linking.openURL(investment.videoUrl);
+                  Linking.openURL(investment.videoUrl).catch(err => {
+                    console.error("Failed to open URL:", err);
+                    Alert.alert("Error", "Could not open this link.");
+                  });
                 }
               }}
             />

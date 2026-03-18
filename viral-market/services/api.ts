@@ -136,6 +136,17 @@ export const api = {
         }
     },
 
+    getGroupLeaderboard: async (groupId: string): Promise<LeaderboardResponse | null> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/groups/${groupId}/leaderboard`);
+            if (!response.ok) throw new Error("Failed to fetch group leaderboard");
+            return await response.json();
+        } catch (error) {
+            console.error("Get group leaderboard error:", error);
+            return null;
+        }
+    },
+
     createGroup: async (userId: string, groupName: string): Promise<{ success: boolean; group?: GroupInfo; error?: string }> => {
         try {
             const response = await fetch(`${BASE_URL}/api/groups/create`, {

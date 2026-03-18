@@ -633,6 +633,60 @@ async def get_user_groups(user_id: str):
         print(f"Get groups error: {e}")
         return UserGroupsResponse(success=False, error=str(e))
 
+@app.get("/api/groups/{group_id}/leaderboard")
+async def get_group_leaderboard(group_id: str):
+    try:
+        # 1. Fetch the group to get members list
+        group_res = supabase.table("groups").select("members").eq("group_id", group_id).execute()
+        
+        if not group_res.data:
+            raise HTTPException(status_code=404, detail="Group not found.")
+            
+        members = group_res.data[0].get("members", [])
+        if not members:
+            return {"leaderboard": []}
+            
+        # 2. We need balances of all members and their investment values
+        users_res = supabase.table("users").select("*").in_("user_id", members).execute()
+        investments_res = supabase.table("investments").select("*").in_("user_id", members).execute()
+        videos_res = supabase.table("videos").select("asset_id, current_price").execute()
+        
+        videos_price_map = {v["asset_id"]: v["current_price"] for v in videos_res.data}
+        
+        user_portfolio_values = {}
+        for u in users_res.data:
+            user_portfolio_values[u["user_id"]] = u["balance"]
+            
+        for inv in investments_res.data:
+            uid = inv["user_id"]
+            if uid not in user_portfolio_values:
+                continue # Edge case, shouldn't happen based on foreign keys
+                
+            asset_id = inv["asset_id"]
+            shares = inv["shares_owned"]
+            curr_price = videos_price_map.get(asset_id, inv["buy_price"])
+            val = shares * curr_price
+            user_portfolio_values[uid] += val
+                
+        leaderboard = []
+        for uid, total_val in user_portfolio_values.items():
+            leaderboard.append({
+                "username": uid, # In a real app we'd map this to actual username or display_name
+                "portfolio_value": total_val
+            })
+            
+        leaderboard.sort(key=lambda x: x["portfolio_value"], reverse=True)
+        
+        for i, entry in enumerate(leaderboard):
+            entry["rank"] = i + 1
+            
+        return {
+            "leaderboard": leaderboard
+        }
+    except Exception as e:
+        print(f"Group leaderboard error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ============ ADD VIDEO ENDPOINT ============
 

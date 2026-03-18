@@ -113,6 +113,8 @@ class AuthResponse(BaseModel):
     user_id: Optional[str] = None
     username: Optional[str] = None
     balance: Optional[float] = None
+    display_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
     error: Optional[str] = None
 
 # ---- Group Models ----
@@ -671,6 +673,102 @@ async def get_leaderboard():
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+class ProfileResponse(BaseModel):
+    success: bool
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+    balance: Optional[float] = None
+    email: Optional[str] = None
+    error: Optional[str] = None
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str
+    profile_picture_url: Optional[str] = None
+
+@app.get("/api/user/{user_id}/profile", response_model=ProfileResponse)
+async def get_user_profile(user_id: str):
+    try:
+        user_res = supabase.table("users").select("user_id, username, display_name, profile_picture_url, balance, email").eq("user_id", user_id).execute()
+        if not user_res.data:
+            return ProfileResponse(success=False, error="User not found")
+            
+        user_data = user_res.data[0]
+        return ProfileResponse(
+            success=True,
+            user_id=user_data["user_id"],
+            username=user_data["username"],
+            display_name=user_data.get("display_name") or user_data["username"],
+            profile_picture_url=user_data.get("profile_picture_url"),
+            balance=user_data["balance"],
+            email=user_data["email"]
+        )
+    except Exception as e:
+        print(f"Get profile error: {e}")
+        return ProfileResponse(success=False, error=str(e))
+
+@app.put("/api/user/{user_id}/profile", response_model=ProfileResponse)
+async def update_user_profile(user_id: str, request: UpdateProfileRequest):
+    try:
+        update_data = {"display_name": request.display_name}
+        if request.profile_picture_url is not None:
+            update_data["profile_picture_url"] = request.profile_picture_url
+
+        user_res = supabase.table("users").update(update_data).eq("user_id", user_id).execute()
+        if not user_res.data:
+            return ProfileResponse(success=False, error="User not found or update failed")
+            
+        user_data = user_res.data[0]
+        return ProfileResponse(
+            success=True,
+            user_id=user_data["user_id"],
+            username=user_data["username"],
+            display_name=user_data.get("display_name") or user_data["username"],
+            profile_picture_url=user_data.get("profile_picture_url"),
+            balance=user_data["balance"],
+            email=user_data["email"]
+        )
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        return ProfileResponse(success=False, error=str(e))
+
+from fastapi import UploadFile, File
+
+@app.post("/api/user/{user_id}/avatar")
+async def upload_avatar(user_id: str, file: UploadFile = File(...)):
+    try:
+        # Check if user exists
+        user_res = supabase.table("users").select("user_id").eq("user_id", user_id).execute()
+        if not user_res.data:
+            return {"success": False, "error": "User not found"}
+
+        # Read file contents
+        file_bytes = await file.read()
+        file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        
+        # Create a unique filename for the avatar
+        file_name = f"{user_id}_{int(datetime.utcnow().timestamp())}.{file_ext}"
+
+        # Upload to Supabase Storage 'avatars' bucket
+        supabase.storage.from_("avatars").upload(
+            path=file_name,
+            file=file_bytes,
+            file_options={"content-type": file.content_type}
+        )
+
+        # Get the public URL
+        public_url = supabase.storage.from_("avatars").get_public_url(file_name)
+
+        # Update the user's profile with the new URL
+        supabase.table("users").update({"profile_picture_url": public_url}).eq("user_id", user_id).execute()
+
+        return {"success": True, "profile_picture_url": public_url}
+        
+    except Exception as e:
+        print(f"Upload avatar error: {e}")
+        return {"success": False, "error": str(e)}
+
 @app.post("/api/auth/signup", response_model=AuthResponse)
 async def signup(request: SignupRequest):
     try:
@@ -686,15 +784,28 @@ async def signup(request: SignupRequest):
         
         user_id = f"user_{request.username}_{int(datetime.utcnow().timestamp())}"
         
+        # UI Avatars default URL
+        encoded_username = request.username.replace(" ", "+")
+        default_avatar_url = f"https://ui-avatars.com/api/?name={encoded_username}&background=random&color=fff&size=200"
+        
         supabase.table("users").insert({
             "user_id": user_id,
             "username": request.username,
+            "display_name": request.username,
+            "profile_picture_url": default_avatar_url,
             "email": request.email,
             "password_hash": hash_password(request.password),
             "balance": 1000.0
         }).execute()
         
-        return AuthResponse(success=True, user_id=user_id, username=request.username, balance=1000.0)
+        return AuthResponse(
+            success=True, 
+            user_id=user_id, 
+            username=request.username, 
+            balance=1000.0,
+            display_name=request.username,
+            profile_picture_url=default_avatar_url
+        )
     except Exception as e:
         print(f"Signup error: {e}")
         return AuthResponse(success=False, error=str(e))
@@ -859,6 +970,8 @@ async def get_group_leaderboard(group_id: str):
         for u in users_res.data:
             user_portfolio_values[u["user_id"]] = {
                 "username": u.get("username", u["user_id"]),
+                "display_name": u.get("display_name") or u.get("username", u["user_id"]),
+                "profile_picture_url": u.get("profile_picture_url"),
                 "balance": u["balance"],
                 "total_invested": 0,
                 "total_value": 0
@@ -888,6 +1001,8 @@ async def get_group_leaderboard(group_id: str):
             leaderboard.append({
                 "user_id": uid,
                 "username": data["username"],
+                "display_name": data["display_name"],
+                "profile_picture_url": data["profile_picture_url"],
                 "portfolio_value": total_portfolio_value,
                 "profit_loss_percent": p_l_percent
             })

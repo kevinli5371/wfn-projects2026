@@ -5,6 +5,8 @@ interface User {
   userId: string;
   username: string;
   balance: number;
+  display_name?: string;
+  profile_picture_url?: string;
 }
 
 interface AuthContextType {
@@ -12,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   signIn: (email: string, password: string) => void;
   signUp: (email: string, username: string, password: string) => void;
-  signOut: () => void;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,7 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   signIn: () => { },
   signUp: () => { },
-  signOut: () => { },
+  logout: () => { },
 });
 
 export function useAuth() {
@@ -42,7 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (data.success) {
-        setUser({ userId: data.user_id, username: data.username, balance: data.balance });
+        setUser({ 
+          userId: data.user_id, 
+          username: data.username, 
+          balance: data.balance,
+          display_name: data.display_name,
+          profile_picture_url: data.profile_picture_url
+        });
         setIsAuthenticated(true);
       } else {
         Alert.alert('Login Failed', data.error || 'Invalid credentials');
@@ -61,7 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (data.success) {
-        setUser({ userId: data.user_id, username: data.username, balance: data.balance });
+        setUser({ 
+          userId: data.user_id, 
+          username: data.username, 
+          balance: data.balance,
+          display_name: data.display_name,
+          profile_picture_url: data.profile_picture_url
+        });
         setIsAuthenticated(true);
       } else {
         Alert.alert('Signup Failed', data.error || 'Could not create account');
@@ -71,13 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = () => {
+  const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, signIn, signUp, logout }}>
       {children}
     </AuthContext.Provider>
   );

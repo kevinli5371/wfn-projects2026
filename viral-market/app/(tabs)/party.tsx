@@ -14,6 +14,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, GroupInfo } from '@/services/api';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withRepeat,
+    withTiming,
+    withSequence,
+    Easing,
+} from 'react-native-reanimated';
 
 export default function PartyScreen() {
     const { user } = useAuth();
@@ -22,6 +30,39 @@ export default function PartyScreen() {
     const [groups, setGroups] = useState<GroupInfo[]>([]);
     const [selectedGroup, setSelectedGroup] = useState<GroupInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Animation values
+    const translateY = useSharedValue(0);
+    const rotateZ = useSharedValue(0);
+
+    useEffect(() => {
+        translateY.value = withRepeat(
+            withSequence(
+                withTiming(-30, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+                withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            true
+        );
+
+        rotateZ.value = withRepeat(
+            withSequence(
+                withTiming(8, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+                withTiming(-8, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            true
+        );
+    }, []);
+
+    const animatedImageStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                { translateY: translateY.value },
+                { rotate: `${rotateZ.value}deg` },
+            ],
+        };
+    });
 
     const userId = user?.userId ?? 'user1';
 
@@ -91,9 +132,9 @@ export default function PartyScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="dark-content" />
                 <View style={styles.joinCreateContainer}>
-                    <Image
+                    <Animated.Image
                         source={require('../../assets/images/stackofcoins.png')}
-                        style={styles.coinsImage}
+                        style={[styles.coinsImage, animatedImageStyle]}
                         resizeMode="contain"
                     />
                     <Text style={styles.mainTitle}>{'Join or\nCreate a\nParty'}</Text>
@@ -239,7 +280,7 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     input: {
-        backgroundColor: '#F3F3F3',
+        backgroundColor: '#EBEBEB',
         paddingHorizontal: 26,
         paddingVertical: 18,
         borderRadius: 28,

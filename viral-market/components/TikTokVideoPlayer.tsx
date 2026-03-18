@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
-import { Investment } from '@/constants/mockData';
+import { Investment } from '@/constants/data';
 
 const { width, height } = Dimensions.get('window');
 

@@ -8,58 +8,65 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
-  Modal,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '@/services/api';
+import { api, PortfolioResponse } from '@/services/api';
 import { ActivityIndicator, Alert } from 'react-native';
 import PerformanceChart from '@/components/PerformanceChart';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
-import TikTokVideoPlayer from '@/components/TikTokVideoPlayer';
-import { mockPortfolio, chartData, Investment } from '@/constants/mockData';
+import { Investment } from '@/constants/data';
+import { useAuth } from '@/contexts/AuthContext';
 
 type TimePeriod = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
 type SortOption = 'performance' | 'recent' | 'value';
 
 export default function PortfolioScreen() {
+  const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
   const [sortBy, setSortBy] = useState<SortOption>('performance');
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
-  const [isVideoVisible, setIsVideoVisible] = useState(false);
-  // Initialize with empty array, will fetch from API
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
 
-  // Hardcoded user ID for demo
-  const USER_ID = "user1";
+  // Use real authenticated user ID
+  const userId = user?.userId ?? 'user1';
+  const username = user?.username ?? 'User';
+
+  // Chart data based on portfolio balance (static shape for now)
+  const chartData = [
+    { x: 0, y: 1000 },
+    { x: 1, y: 1000 },
+    { x: 2, y: portfolioData ? portfolioData.balance + portfolioData.total_value : 1000 },
+  ];
 
   React.useEffect(() => {
     fetchPortfolio();
-  }, []);
+  }, [userId]);
 
   const fetchPortfolio = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getPortfolio(USER_ID);
-      if (data && data.investments) {
-        const mappedInvestments: Investment[] = data.investments.map(item => ({
-          id: item.asset_id,
-          username: item.author || 'Unknown',
-          investedAt: 'Just now', // API doesn't return date
-          thumbnail: `https://picsum.photos/seed/${item.asset_id}/200/300`,
-          videoUrl: item.video_url,
-          viewsOnInvestment: 0, // Not provided
-          likesOnInvestment: 0, // Not provided
-          currentViews: 0, // Not provided in list
-          currentLikes: 0, // Not provided in list
-          performance: item.profit_loss_percent
-        }));
-        setInvestments(mappedInvestments);
-      } else {
-        // Fallback to mock if API fails or empty? 
-        // User requested "switch to real API calls", so let's stick to empty or what API returns.
-        // But if API is down, maybe show empty.
+      const data = await api.getPortfolio(userId);
+      if (data) {
+        setPortfolioData(data);
+        if (data.investments) {
+          const mappedInvestments: Investment[] = data.investments.map(item => ({
+            id: item.asset_id,
+            username: item.author || 'Unknown',
+            investedAt: 'Recently',
+            thumbnail: item.thumbnail || `https://picsum.photos/seed/${item.asset_id}/200/300`,
+            videoUrl: item.video_url,
+            viewsOnInvestment: item.views || 0,
+            likesOnInvestment: item.likes || 0,
+            currentViews: item.views || 0,
+            currentLikes: item.likes || 0,
+            performance: item.profit_loss_percent
+          }));
+          setInvestments(mappedInvestments);
+        }
       }
     } catch (e) {
       console.error("Failed to fetch portfolio", e);
@@ -112,7 +119,7 @@ export default function PortfolioScreen() {
             onPress: async () => {
               // 3. Invest
               // Note: Using hardcoded 100 coins as per demo flow
-              const investResult = await api.investInVideo(USER_ID, scrapeResult.asset_id!, 100);
+              const investResult = await api.investInVideo(userId, scrapeResult.asset_id!, 100);
 
               if (investResult.success) {
                 Alert.alert("Success", "Investment added to your portfolio!");
@@ -140,9 +147,9 @@ export default function PortfolioScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello {mockPortfolio.username},</Text>
+          <Text style={styles.greeting}>Hello {username},</Text>
           <Text style={styles.subGreeting}>
-            You invested in {mockPortfolio.weeklyInvestments} videos this week.
+            You have {investments.length} investment{investments.length !== 1 ? 's' : ''} in your portfolio.
           </Text>
         </View>
 
@@ -150,7 +157,7 @@ export default function PortfolioScreen() {
         <View style={styles.accountSection}>
           <Text style={styles.accountLabel}>Your Account</Text>
           <Text style={styles.balance}>
-            ${mockPortfolio.accountBalance.toLocaleString('en-US', {
+            ${(portfolioData?.balance ?? user?.balance ?? 0).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -195,7 +202,7 @@ export default function PortfolioScreen() {
                 <Ionicons name="wallet-outline" size={20} color="#4A9D8E" />
               </View>
               <Text style={styles.statLabel}>Assets</Text>
-              <Text style={styles.statValue}>{mockPortfolio.totalAssets}</Text>
+              <Text style={styles.statValue}>{investments.length}</Text>
             </View>
 
             <View style={styles.statItem}>
@@ -203,7 +210,7 @@ export default function PortfolioScreen() {
                 <Ionicons name="calendar-outline" size={20} color="#4A9D8E" />
               </View>
               <Text style={styles.statLabel}>Invested</Text>
-              <Text style={styles.statValue}>{mockPortfolio.totalInvested}</Text>
+              <Text style={styles.statValue}>${(portfolioData?.total_invested ?? 0).toFixed(0)}</Text>
             </View>
           </View>
         </View>
@@ -229,7 +236,7 @@ export default function PortfolioScreen() {
         {/* Portfolio List */}
         <View style={styles.portfolioSection}>
           <View style={styles.portfolioHeader}>
-            <Text style={styles.portfolioTitle}>{mockPortfolio.username}'s Portfolio</Text>
+            <Text style={styles.portfolioTitle}>{username}'s Portfolio</Text>
             <TouchableOpacity onPress={toggleSort} style={styles.sortButton}>
               <Text style={styles.sortText}>Sort</Text>
               <Ionicons name="chevron-down" size={16} color="#4A9D8E" />
@@ -241,27 +248,13 @@ export default function PortfolioScreen() {
               key={investment.id}
               investment={investment}
               onPress={() => {
-                setSelectedInvestment(investment);
-                setIsVideoVisible(true);
+                if (investment.videoUrl) {
+                  Linking.openURL(investment.videoUrl);
+                }
               }}
             />
           ))}
         </View>
-
-        {/* Video Player Modal */}
-        <Modal
-          visible={isVideoVisible}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setIsVideoVisible(false)}
-        >
-          {selectedInvestment && (
-            <TikTokVideoPlayer
-              investment={selectedInvestment}
-              onClose={() => setIsVideoVisible(false)}
-            />
-          )}
-        </Modal>
 
         {/* Bottom spacing for tab bar */}
         <View style={styles.bottomSpacer} />

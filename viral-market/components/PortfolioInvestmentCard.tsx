@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Investment } from '@/constants/mockData';
+import { Investment } from '@/constants/data';
 
 interface PortfolioInvestmentCardProps {
     investment: Investment;

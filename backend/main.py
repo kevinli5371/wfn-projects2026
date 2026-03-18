@@ -54,6 +54,7 @@ class ScrapeResponse(BaseModel):
     likes: Optional[int] = None
     author: Optional[str] = None
     current_price: Optional[float] = None
+    thumbnail: Optional[str] = None
     error: Optional[str] = None
 
 class InvestRequest(BaseModel):
@@ -80,6 +81,9 @@ class PortfolioItem(BaseModel):
     current_value: float
     profit_loss: float
     profit_loss_percent: float
+    views: int = 0
+    likes: int = 0
+    thumbnail: str = ""
 
 class PortfolioResponse(BaseModel):
     user_id: str
@@ -206,6 +210,8 @@ def scrape_video(request: ScrapeRequest):
         current_price = views / 1000
         asset_id = f"asset_{author}_{views}"
 
+        thumbnail = data.get("thumbnail", "")
+
         # ✅ Save to Supabase (Upsert in case it was already scraped)
         supabase.table("videos").upsert({
             "asset_id": asset_id,
@@ -213,7 +219,8 @@ def scrape_video(request: ScrapeRequest):
             "author": author,
             "views": views,
             "likes": likes,
-            "current_price": current_price
+            "current_price": current_price,
+            "thumbnail": thumbnail
         }).execute()
         
         return ScrapeResponse(
@@ -223,7 +230,8 @@ def scrape_video(request: ScrapeRequest):
             views=views,
             likes=likes,
             author=author,
-            current_price=current_price
+            current_price=current_price,
+            thumbnail=thumbnail
         )
         
     except Exception as e:
@@ -347,6 +355,10 @@ async def get_portfolio(user_id: str):
             total_invested += cost_basis
             total_value += curr_val
             
+            views = asset_info.get("views", 0) if asset_info else 0
+            likes = asset_info.get("likes", 0) if asset_info else 0
+            thumbnail = asset_info.get("thumbnail", "") if asset_info else ""
+            
             item = PortfolioItem(
                 asset_id=asset_id,
                 video_url=video_url,
@@ -356,7 +368,10 @@ async def get_portfolio(user_id: str):
                 current_price=current_price,
                 current_value=curr_val,
                 profit_loss=p_l,
-                profit_loss_percent=p_l_percent
+                profit_loss_percent=p_l_percent,
+                views=views,
+                likes=likes,
+                thumbnail=thumbnail
             )
             portfolio_items.append(item)
             

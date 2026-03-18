@@ -31,7 +31,7 @@ export default function PerformanceChart({
     const points = data
         .map((point, index) => {
             const x = (index / (data.length - 1)) * width;
-            const y = height - ((point.y - minY) / yRange) * height;
+            const y = yRange === 0 ? height / 2 : height - ((point.y - minY) / yRange) * height;
             return `${x},${y}`;
         })
         .join(' ');

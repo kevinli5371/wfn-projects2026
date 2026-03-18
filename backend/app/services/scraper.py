@@ -18,7 +18,8 @@ def get_tiktok_data(url):
     return {
         "views": video_data["stats"]["playCount"],
         "likes": video_data["stats"]["diggCount"],
-        "author": video_data["author"]["uniqueId"]
+        "author": video_data["author"]["uniqueId"],
+        "thumbnail": video_data.get("video", {}).get("cover", "")
     }
 
 from playwright.sync_api import sync_playwright

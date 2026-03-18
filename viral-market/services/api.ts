@@ -34,6 +34,9 @@ export interface PortfolioItem {
     current_value: number;
     profit_loss: number;
     profit_loss_percent: number;
+    views: number;
+    likes: number;
+    thumbnail: string;
 }
 
 export interface PortfolioResponse {

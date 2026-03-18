@@ -6,11 +6,13 @@ import { Investment } from '@/constants/data';
 interface PortfolioInvestmentCardProps {
     investment: Investment;
     onPress?: () => void;
+    onSellPress?: () => void;
 }
 
 export default function PortfolioInvestmentCard({
     investment,
-    onPress
+    onPress,
+    onSellPress
 }: PortfolioInvestmentCardProps) {
     const isPositive = investment.performance >= 0;
     const performanceColor = isPositive ? '#4CAF50' : '#F44336';
@@ -42,7 +44,7 @@ export default function PortfolioInvestmentCard({
                 </View>
             </View>
 
-            <View style={styles.performance}>
+            <View style={styles.rightSection}>
                 <View style={[styles.badge, { backgroundColor: performanceColor }]}>
                     <Text style={styles.badgeText}>
                         {isPositive ? '+' : ''}{investment.performance.toFixed(1)}%
@@ -59,6 +61,15 @@ export default function PortfolioInvestmentCard({
                         <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
                     </View>
                 </View>
+
+                {onSellPress && (
+                    <TouchableOpacity style={styles.sellButton} onPress={(e) => {
+                        e.stopPropagation(); // Prevent card tap
+                        onSellPress();
+                    }}>
+                        <Text style={styles.sellButtonText}>Sell</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </TouchableOpacity>
     );
@@ -116,7 +127,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#666',
     },
-    performance: {
+    rightSection: {
         alignItems: 'flex-end',
         gap: 8,
     },
@@ -132,5 +143,19 @@ const styles = StyleSheet.create({
     },
     currentStats: {
         gap: 4,
+    },
+    sellButton: {
+        marginTop: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#FFEAEA',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FFD1D1',
+    },
+    sellButtonText: {
+        color: '#F44336',
+        fontSize: 12,
+        fontWeight: '600',
     },
 });

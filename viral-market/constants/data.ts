@@ -1,5 +1,6 @@
 export interface Investment {
-    id: string;
+    id: string; // This corresponds to asset_id
+    investmentId?: string; // Add this if needed for the backend /sell endpoint
     username: string;
     investedAt: string;
     thumbnail: string;
@@ -9,4 +10,6 @@ export interface Investment {
     currentViews: number;
     currentLikes: number;
     performance: number; // percentage change
+    shares: number;
+    currentPrice: number;
 }

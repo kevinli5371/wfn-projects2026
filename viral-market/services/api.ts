@@ -102,6 +102,18 @@ export const api = {
         }
     },
 
+    sellInvestment: async (userId: string, assetId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/sell?user_id=${userId}&investment_id=${assetId}`, {
+                method: 'POST',
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Sell error:', error);
+            return { success: false, error: 'Network error during sale' };
+        }
+    },
+
     getPortfolio: async (userId: string): Promise<PortfolioResponse | null> => {
         try {
             const response = await fetch(`${BASE_URL}/api/portfolio/${userId}`);

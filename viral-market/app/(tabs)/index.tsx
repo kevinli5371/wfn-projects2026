@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Linking,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api, PortfolioResponse } from '@/services/api';
@@ -30,6 +31,10 @@ export default function PortfolioScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
+  
+  // Sell Modal State
+  const [sellingInvestment, setSellingInvestment] = useState<Investment | null>(null);
+  const [sellAmountStr, setSellAmountStr] = useState('1');
 
   // Use real authenticated user ID
   const userId = user?.userId ?? 'user1';
@@ -63,7 +68,9 @@ export default function PortfolioScreen() {
             likesOnInvestment: item.likes || 0,
             currentViews: item.views || 0,
             currentLikes: item.likes || 0,
-            performance: item.profit_loss_percent
+            performance: item.profit_loss_percent,
+            shares: item.shares || 0,
+            currentPrice: item.current_price || 0,
           }));
           setInvestments(mappedInvestments);
         }
@@ -255,6 +262,10 @@ export default function PortfolioScreen() {
                   });
                 }
               }}
+              onSellPress={() => {
+                setSellingInvestment(investment);
+                setSellAmountStr(investment.shares.toString());
+              }}
             />
           ))}
         </View>
@@ -267,6 +278,97 @@ export default function PortfolioScreen() {
           <ActivityIndicator size="large" color="#4A9D8E" />
         </View>
       )}
+
+      {/* Sell Modal */}
+      <Modal
+        visible={!!sellingInvestment}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSellingInvestment(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sell Investment</Text>
+              <TouchableOpacity onPress={() => setSellingInvestment(null)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            {sellingInvestment && (
+              <>
+                <Text style={styles.modalSubtitle}>
+                  {sellingInvestment.username}'s Video
+                </Text>
+                
+                <View style={styles.tradeInfoBox}>
+                  <View style={styles.tradeRow}>
+                    <Text style={styles.tradeLabel}>Shares Owned:</Text>
+                    <Text style={styles.tradeValue}>{sellingInvestment.shares.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.tradeRow}>
+                    <Text style={styles.tradeLabel}>Current Price:</Text>
+                    <Text style={styles.tradeValue}>${sellingInvestment.currentPrice.toFixed(2)}/share</Text>
+                  </View>
+                </View>
+
+                <View style={styles.inputSection}>
+                  <Text style={styles.inputLabel}>Shares to Sell</Text>
+                  <TextInput
+                    style={styles.sharesInput}
+                    keyboardType="numeric"
+                    value={sellAmountStr}
+                    onChangeText={setSellAmountStr}
+                    placeholder="0"
+                  />
+                  <Text style={styles.estimatedPayout}>
+                    Estimated Payout: ${(
+                      (parseFloat(sellAmountStr) || 0) * sellingInvestment.currentPrice
+                    ).toFixed(2)}
+                  </Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={[
+                    styles.confirmSellButton, 
+                    (!parseFloat(sellAmountStr) || parseFloat(sellAmountStr) <= 0 || parseFloat(sellAmountStr) > sellingInvestment.shares) && styles.disabledButton
+                  ]}
+                  disabled={!parseFloat(sellAmountStr) || parseFloat(sellAmountStr) <= 0 || parseFloat(sellAmountStr) > sellingInvestment.shares}
+                  onPress={async () => {
+                    const amountToSell = parseFloat(sellAmountStr);
+                    if (!amountToSell || amountToSell <= 0 || amountToSell > sellingInvestment.shares) {
+                      Alert.alert("Invalid Amount", "Please enter a valid number of shares to sell.");
+                      return;
+                    }
+
+                    setIsLoading(true);
+                    setSellingInvestment(null);
+                    
+                    try {
+                      // Call backend API
+                      const result = await api.sellInvestment(userId, sellingInvestment.id);
+                      if (result.success) {
+                        Alert.alert("Success", "Shares sold successfully!");
+                        fetchPortfolio(); // Refresh portfolio UI
+                      } else {
+                        Alert.alert("Error", result.error || "Failed to sell shares");
+                        setSellingInvestment(sellingInvestment); // Re-open if failed
+                      }
+                    } catch (error) {
+                      Alert.alert("Error", "Network error occurred.");
+                      setSellingInvestment(sellingInvestment);
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.confirmSellText}>Confirm Sale</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -417,5 +519,92 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 100,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  tradeInfoBox: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    gap: 8,
+  },
+  tradeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tradeLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  tradeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  inputSection: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  sharesInput: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  estimatedPayout: {
+    fontSize: 14,
+    color: '#4A9D8E',
+    fontWeight: '500',
+  },
+  confirmSellButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 16,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#FFCDD2',
+  },
+  confirmSellText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

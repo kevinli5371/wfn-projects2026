@@ -173,10 +173,9 @@ const styles = StyleSheet.create({
         fontFamily: 'CircularStd',
     },
     currentStats: {
-        alignItems: 'flex-start',
-        width: '100%',
-        paddingLeft: 4,
+        alignItems: 'flex-end',
         marginBottom: 4,
+        gap: 2,
     },
     actionButtonsRow: {
         flexDirection: 'row',

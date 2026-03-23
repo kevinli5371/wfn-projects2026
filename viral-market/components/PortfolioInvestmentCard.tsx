@@ -18,6 +18,9 @@ export default function PortfolioInvestmentCard({
 }: PortfolioInvestmentCardProps) {
     const isPositive = investment.performance >= 0;
     const performanceColor = isPositive ? '#61C13F' : '#CB5A44';
+    
+    const viewsDelta = investment.currentViews - investment.viewsOnInvestment;
+    const likesDelta = investment.currentLikes - investment.likesOnInvestment;
 
     return (
         <TouchableOpacity
@@ -56,6 +59,21 @@ export default function PortfolioInvestmentCard({
                     <Text style={styles.badgeText}>
                         {isPositive ? '+' : ''}{investment.performance.toFixed(1)}%
                     </Text>
+                </View>
+
+                <View style={styles.currentStats}>
+                    <View style={styles.statRow}>
+                        <Ionicons name="eye" size={12} color={viewsDelta >= 0 ? '#61C13F' : '#CB5A44'} />
+                        <Text style={[styles.statText, { color: viewsDelta >= 0 ? '#61C13F' : '#CB5A44' }]}>
+                            {viewsDelta >= 0 ? '+' : ''}{formatNumber(viewsDelta)}
+                        </Text>
+                    </View>
+                    <View style={styles.statRow}>
+                        <Ionicons name="heart" size={12} color={likesDelta >= 0 ? '#61C13F' : '#CB5A44'} />
+                        <Text style={[styles.statText, { color: likesDelta >= 0 ? '#61C13F' : '#CB5A44' }]}>
+                            {likesDelta >= 0 ? '+' : ''}{formatNumber(likesDelta)}
+                        </Text>
+                    </View>
                 </View>
 
                 <View style={styles.actionButtonsRow}>
@@ -153,6 +171,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
         fontFamily: 'CircularStd',
+    },
+    currentStats: {
+        alignItems: 'flex-start',
+        width: '100%',
+        paddingLeft: 4,
+        marginBottom: 4,
     },
     actionButtonsRow: {
         flexDirection: 'row',

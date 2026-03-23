@@ -17,10 +17,7 @@ export default function PortfolioInvestmentCard({
     onBuyPress
 }: PortfolioInvestmentCardProps) {
     const isPositive = investment.performance >= 0;
-    const performanceColor = isPositive ? '#4CAF50' : '#F44336';
-
-    const viewsDelta = investment.currentViews - investment.viewsOnInvestment;
-    const likesDelta = investment.currentLikes - investment.likesOnInvestment;
+    const performanceColor = isPositive ? '#61C13F' : '#CB5A44';
 
     return (
         <TouchableOpacity
@@ -33,48 +30,32 @@ export default function PortfolioInvestmentCard({
                 style={styles.thumbnail}
             />
 
-            <View style={styles.content}>
-                <Text style={styles.username}>{investment.username}</Text>
-                <Text style={styles.investedAt}>invested {investment.investedAt}</Text>
+            <View style={styles.middleColumn}>
+                <Text style={styles.username}>@{investment.username.replace('@', '')}</Text>
+                <Text style={styles.investedAt}>Invested {investment.investedAt}</Text>
 
-                <View style={styles.stats}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="eye-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="heart-outline" size={14} color="#666" />
-                        <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={[styles.statText, { fontSize: 13 }]}>🪙</Text>
-                        <Text style={[styles.statText, { fontWeight: '600', color: '#333' }]}>
-                            {(investment.investedCoins * (1 + investment.performance / 100)).toFixed(2)}
-                        </Text>
-                    </View>
+                <View style={styles.statRow}>
+                    <Ionicons name="eye" size={12} color="#888" />
+                    <Text style={styles.statText}>{formatNumber(investment.currentViews)}</Text>
+                </View>
+                <View style={styles.statRow}>
+                    <Ionicons name="heart" size={12} color="#888" />
+                    <Text style={styles.statText}>{formatNumber(investment.currentLikes)}</Text>
+                </View>
+                
+                <View style={[styles.statRow, { marginTop: 4 }]}>
+                    <Text style={[styles.statText, { fontSize: 13 }]}>🪙</Text>
+                    <Text style={[styles.statText, { fontWeight: '600', color: '#333' }]}>
+                        {(investment.investedCoins * (1 + investment.performance / 100)).toFixed(2)}
+                    </Text>
                 </View>
             </View>
 
-            <View style={styles.rightSection}>
+            <View style={styles.rightColumn}>
                 <View style={[styles.badge, { backgroundColor: performanceColor }]}>
                     <Text style={styles.badgeText}>
                         {isPositive ? '+' : ''}{investment.performance.toFixed(1)}%
                     </Text>
-                </View>
-
-                <View style={styles.currentStats}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="eye" size={14} color={viewsDelta >= 0 ? '#4CAF50' : '#F44336'} />
-                        <Text style={[styles.statText, { color: viewsDelta >= 0 ? '#4CAF50' : '#F44336' }]}>
-                            {viewsDelta >= 0 ? '+' : ''}{formatNumber(viewsDelta)}
-                        </Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="heart" size={14} color={likesDelta >= 0 ? '#4CAF50' : '#F44336'} />
-                        <Text style={[styles.statText, { color: likesDelta >= 0 ? '#4CAF50' : '#F44336' }]}>
-                            {likesDelta >= 0 ? '+' : ''}{formatNumber(likesDelta)}
-                        </Text>
-                    </View>
                 </View>
 
                 <View style={styles.actionButtonsRow}>
@@ -89,7 +70,7 @@ export default function PortfolioInvestmentCard({
                     
                     {onSellPress && (
                         <TouchableOpacity style={styles.sellButton} onPress={(e) => {
-                            e.stopPropagation(); // Prevent card tap
+                            e.stopPropagation();
                             onSellPress();
                         }}>
                             <Text style={styles.sellButtonText}>Sell</Text>
@@ -106,7 +87,7 @@ function formatNumber(num: number): string {
         return (num / 1000000).toFixed(1) + 'M';
     }
     if (num >= 1000) {
-        return (num / 1000).toFixed(0) + 'k';
+        return (num / 1000).toFixed(0) + 'K';
     }
     return num.toString();
 }
@@ -114,70 +95,73 @@ function formatNumber(num: number): string {
 const styles = StyleSheet.create({
     card: {
         flexDirection: 'row',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 12,
+        backgroundColor: '#EBEBEB',
+        borderRadius: 20,
         padding: 12,
-        marginBottom: 12,
+        marginBottom: 16,
         alignItems: 'center',
     },
     thumbnail: {
-        width: 60,
-        height: 60,
-        borderRadius: 8,
-        marginRight: 12,
+        width: 70,
+        height: 105,
+        borderRadius: 16,
+        marginRight: 16,
     },
-    content: {
+    middleColumn: {
         flex: 1,
+        justifyContent: 'center',
     },
     username: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#333',
+        color: '#555',
         marginBottom: 2,
+        fontFamily: 'Futura',
     },
     investedAt: {
-        fontSize: 12,
-        color: '#999',
+        fontSize: 11,
+        color: '#888',
+        fontStyle: 'italic',
         marginBottom: 8,
     },
-    stats: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    statItem: {
+    statRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 6,
+        marginBottom: 4,
     },
     statText: {
-        fontSize: 12,
+        fontSize: 11,
+        fontWeight: '600',
         color: '#666',
+        fontFamily: 'Futura',
     },
-    rightSection: {
+    rightColumn: {
         alignItems: 'flex-end',
-        gap: 8,
+        justifyContent: 'space-between',
+        height: 105,
+        paddingVertical: 2,
     },
     badge: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
+        marginBottom: 8,
     },
     badgeText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    currentStats: {
-        gap: 4,
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: 'bold',
+        fontFamily: 'CircularStd',
     },
     actionButtonsRow: {
         flexDirection: 'row',
-        gap: 8,
-        marginTop: 4,
+        gap: 6,
+        marginTop: 'auto',
     },
     buyButton: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         backgroundColor: '#E8F5E9',
         borderRadius: 12,
         borderWidth: 1,
@@ -187,10 +171,11 @@ const styles = StyleSheet.create({
         color: '#4CAF50',
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'Futura',
     },
     sellButton: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         backgroundColor: '#FFEAEA',
         borderRadius: 12,
         borderWidth: 1,
@@ -200,5 +185,6 @@ const styles = StyleSheet.create({
         color: '#F44336',
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'Futura',
     },
 });

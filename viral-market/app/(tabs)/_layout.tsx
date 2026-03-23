@@ -8,34 +8,34 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#4A9D8E',
-        tabBarInactiveTintColor: '#666',
+        tabBarInactiveTintColor: '#999',
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: '#D3D3D3',
-          borderTopWidth: 0,
-          elevation: 0,
-          height: 60,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#F0F0F0',
+          height: 80, // Slightly taller for better safe area padding
+          paddingHorizontal: 100, // Squeezes the two icons into the center
+          paddingBottom: 20, // Balances top/bottom padding including safe areas
+          paddingTop: 12,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Portfolio',
-          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={30} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="party"
         options={{
           title: 'Party',
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "people" : "people-outline"} size={30} color={color} />
+          ),
         }}
       />
     </Tabs>

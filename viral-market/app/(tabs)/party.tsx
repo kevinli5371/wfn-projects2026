@@ -20,6 +20,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api, GroupInfo } from '@/services/api';
 import { Investment } from '@/constants/data';
 import PortfolioInvestmentCard from '@/components/PortfolioInvestmentCard';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withRepeat,
+    withTiming,
+    withSequence,
+    Easing,
+} from 'react-native-reanimated';
 
 export default function PartyScreen() {
     const { user } = useAuth();
@@ -36,6 +44,39 @@ export default function PartyScreen() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Animation values
+    const translateY = useSharedValue(0);
+    const rotateZ = useSharedValue(0);
+
+    useEffect(() => {
+        translateY.value = withRepeat(
+            withSequence(
+                withTiming(-30, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+                withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            true
+        );
+
+        rotateZ.value = withRepeat(
+            withSequence(
+                withTiming(8, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+                withTiming(-8, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            true
+        );
+    }, []);
+
+    const animatedImageStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                { translateY: translateY.value },
+                { rotate: `${rotateZ.value}deg` },
+            ],
+        };
+    });
 
     const userId = user?.userId ?? 'user1';
 
@@ -207,57 +248,65 @@ export default function PartyScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="dark-content" />
                 <View style={styles.joinCreateContainer}>
-                    <Text style={styles.mainTitle}>Join or Create a Party</Text>
+                    <Animated.Image
+                        source={require('../../assets/images/stackofcoins.png')}
+                        style={[styles.coinsImage, animatedImageStyle]}
+                        resizeMode="contain"
+                    />
+                    <Text style={styles.mainTitle}>{'Join or\nCreate a\nParty'}</Text>
 
-                    <View style={styles.inputsContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter the code of an existing party..."
-                            placeholderTextColor="#C8C8C8"
-                            value={joinCode}
-                            onChangeText={setJoinCode}
-                            autoCapitalize="characters"
-                        />
+                    <View style={styles.inputsAndButton}>
+                        <View style={styles.inputsContainer}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter the code of an existing party..."
+                                placeholderTextColor="#B6B6B6"
+                                value={joinCode}
+                                onChangeText={setJoinCode}
+                                autoCapitalize="characters"
+                            />
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Create a fun name for a new party..."
-                            placeholderTextColor="#C8C8C8"
-                            value={partyName}
-                            onChangeText={setPartyName}
-                            autoCapitalize="words"
-                        />
-                    </View>
-
-                    {/* Show existing groups the user is already in */}
-                    {groups.length > 0 && (
-                        <View style={styles.existingGroups}>
-                            <Text style={styles.existingGroupsTitle}>Your Groups</Text>
-                            {groups.map((g) => (
-                                <TouchableOpacity
-                                    key={g.group_id}
-                                    style={styles.existingGroupItem}
-                                    onPress={() => setSelectedGroup(g)}
-                                >
-                                    <Text style={styles.existingGroupName}>{g.group_name}</Text>
-                                    <Text style={styles.existingGroupCode}>Code: {g.group_id}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Create a fun name for a new party..."
+                                placeholderTextColor="#B6B6B6"
+                                value={partyName}
+                                onChangeText={setPartyName}
+                                autoCapitalize="words"
+                            />
                         </View>
-                    )}
 
-                    <TouchableOpacity
-                        style={styles.nextButton}
-                        onPress={() => {
-                            if (joinCode.trim()) {
-                                handleJoinParty();
-                            } else if (partyName.trim()) {
-                                handleCreateParty();
-                            }
-                        }}
-                    >
-                        <Text style={styles.nextButtonText}>Next</Text>
-                    </TouchableOpacity>
+                        {/* Show existing groups the user is already in */}
+                        {groups.length > 0 && (
+                            <View style={styles.existingGroups}>
+                                <Text style={styles.existingGroupsTitle}>Your Groups</Text>
+                                {groups.map((g) => (
+                                    <TouchableOpacity
+                                        key={g.group_id}
+                                        style={styles.existingGroupItem}
+                                        onPress={() => setSelectedGroup(g)}
+                                    >
+                                        <Text style={styles.existingGroupName}>{g.group_name}</Text>
+                                        <Text style={styles.existingGroupCode}>Code: {g.group_id}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.nextButton}
+                            onPress={() => {
+                                if (joinCode.trim()) {
+                                    handleJoinParty();
+                                } else if (partyName.trim()) {
+                                    handleCreateParty();
+                                }
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.nextButtonText}>Next</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </SafeAreaView>
         );
@@ -305,6 +354,10 @@ export default function PartyScreen() {
                         <Text style={styles.codeLabel}>Group Code:</Text>
                         <Text style={styles.codeValue}>{selectedGroup.group_id}</Text>
                     </View>
+                    <TouchableOpacity style={styles.inviteButton}>
+                        <Ionicons name="add" size={16} color="#fff" />
+                        <Text style={styles.inviteButtonText}>Invite</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Members Section */}
@@ -416,32 +469,51 @@ const styles = StyleSheet.create({
     // Join/Create Screen Styles
     joinCreateContainer: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
-        paddingHorizontal: 24,
-        paddingTop: 60,
+        backgroundColor: '#F9F8F6',
+        paddingHorizontal: 32,
+        paddingTop: 120,
+    },
+    coinsImage: {
+        position: 'absolute',
+        top: -20,
+        right: -80,
+        width: 340,
+        height: 340,
+        opacity: 0.95,
     },
     mainTitle: {
-        fontSize: 56,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 40,
-        lineHeight: 64,
+        fontSize: 64,
+        fontWeight: '700',
+        color: '#333333',
+        marginTop: 120,
+        marginBottom: 48,
+        lineHeight: 68,
+        fontFamily: 'CircularStd',
+        letterSpacing: -1.5,
+        zIndex: 10,
+    },
+    inputsAndButton: {
+        flex: 1,
+        justifyContent: 'flex-start',
     },
     inputsContainer: {
-        gap: 16,
-        marginBottom: 24,
+        gap: 18,
+        marginBottom: 20,
+        zIndex: 10,
     },
     input: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 20,
+        backgroundColor: '#EBEBEB',
+        paddingHorizontal: 26,
         paddingVertical: 18,
         borderRadius: 28,
-        fontSize: 15,
-        color: '#333',
+        fontSize: 16,
+        color: '#444',
+        fontFamily: 'Futura',
+        fontStyle: 'italic',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
         elevation: 2,
     },
     existingGroups: {
@@ -476,17 +548,19 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     nextButton: {
-        backgroundColor: '#4A9D8E',
+        backgroundColor: '#2D756F',
         paddingVertical: 18,
-        borderRadius: 28,
+        borderRadius: 20,
         alignItems: 'center',
         marginTop: 'auto',
         marginBottom: 40,
+        zIndex: 10,
     },
     nextButtonText: {
         color: '#fff',
         fontSize: 17,
         fontWeight: '600',
+        fontFamily: 'Futura',
     },
     // Leaderboard Screen Styles
     container: {
@@ -527,6 +601,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 4,
+        fontFamily: 'CircularStd',
     },
     memberCount: {
         fontSize: 14,
@@ -548,6 +623,20 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#4A9D8E',
         letterSpacing: 2,
+    },
+    inviteButton: {
+        flexDirection: 'row',
+        backgroundColor: '#4A9D8E',
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 20,
+        alignItems: 'center',
+        gap: 4,
+    },
+    inviteButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
     },
     quitButtonSmall: {
         flexDirection: 'row',
@@ -572,6 +661,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#4A9D8E',
         marginBottom: 16,
+        fontFamily: 'CircularStd',
     },
     memberCard: {
         flexDirection: 'row',
@@ -641,11 +731,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#333',
         marginBottom: 2,
+        fontFamily: 'Futura',
     },
     memberStats: {
         fontSize: 12,
         color: '#999',
         marginBottom: 2,
+        fontStyle: 'italic',
     },
     memberRight: {
         alignItems: 'flex-end',
@@ -655,11 +747,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#4A9D8E',
+        fontFamily: 'CircularStd',
     },
     memberPL: {
         fontSize: 13,
         fontWeight: '600',
         marginTop: 2,
+        fontFamily: 'CircularStd',
     },
     bottomSpacer: {
         height: 100,
@@ -671,11 +765,17 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        backgroundColor: '#F9F8F6',
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
         height: '80%',
         padding: 24,
+        paddingBottom: 40,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 10,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -684,9 +784,12 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     modalTitle: {
-        fontSize: 22,
+        fontSize: 28,
         fontWeight: 'bold',
         color: '#333',
+        fontFamily: 'CircularStd',
+        textAlign: 'center',
+        marginTop: 8,
     },
     emptyPortfolioText: {
         textAlign: 'center',

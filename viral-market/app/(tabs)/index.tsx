@@ -41,6 +41,7 @@ export default function PortfolioScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
   const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
+  const [displayMode, setDisplayMode] = useState<'money' | 'likes' | 'views'>('money');
   
   // Sell Modal State
   const [sellingInvestment, setSellingInvestment] = useState<Investment | null>(null);
@@ -268,19 +269,44 @@ export default function PortfolioScreen() {
 
         {/* Account Balance */}
         <View style={styles.accountSection}>
-          <Text style={styles.accountLabel}>Net Worth</Text>
-          <Text style={styles.balance}>
-            ${((portfolioData?.balance ?? user?.balance ?? 0) + (portfolioData?.total_value ?? 0)).toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+          <Text style={styles.accountLabel}>
+            {displayMode === 'likes' ? 'Likes Gained' : displayMode === 'views' ? 'Views Gained' : 'Your Account'}
           </Text>
-          <Text style={styles.leftoverCoins}>
-            Leftover Coins: ${(portfolioData?.balance ?? user?.balance ?? 0).toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Text>
+          <View style={styles.balanceRow}>
+            <Text style={styles.balance}>
+              {displayMode === 'likes'
+                ? investments.reduce((sum, inv) => sum + (inv.currentLikes - inv.likesOnInvestment), 0).toLocaleString('en-US')
+                : displayMode === 'views'
+                  ? investments.reduce((sum, inv) => sum + (inv.currentViews - inv.viewsOnInvestment), 0).toLocaleString('en-US')
+                  : '$' + ((portfolioData?.balance ?? user?.balance ?? 0) + (portfolioData?.total_value ?? 0)).toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+            </Text>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => {
+                if (displayMode === 'money') setDisplayMode('likes');
+                else if (displayMode === 'likes') setDisplayMode('views');
+                else setDisplayMode('money');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={displayMode === 'likes' ? 'eye-outline' : displayMode === 'views' ? 'cash-outline' : 'heart-outline'}
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
+          {displayMode === 'money' && (
+             <Text style={styles.leftoverCoins}>
+               Leftover Coins: ${(portfolioData?.balance ?? user?.balance ?? 0).toLocaleString('en-US', {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+               })}
+             </Text>
+          )}
         </View>
 
         {/* Chart and Stats Row */}
@@ -313,23 +339,22 @@ export default function PortfolioScreen() {
             </View>
           </View>
 
-
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <View style={styles.statIcon}>
-                <Ionicons name="wallet-outline" size={20} color="#4A9D8E" />
+          {/* Side Stats Column */}
+          <View style={styles.statsColumn}>
+            <View style={styles.statContainer}>
+              <Ionicons name="wallet-outline" size={32} color="#4A9D8E" />
+              <View style={styles.statTextGroup}>
+                <Text style={styles.statLabel}>Invested</Text>
+                <Text style={styles.statValue}>${(portfolioData?.total_invested ?? 0).toFixed(0)}</Text>
               </View>
-              <Text style={styles.statLabel}>Assets</Text>
-              <Text style={styles.statValue}>{investments.length}</Text>
             </View>
 
-            <View style={styles.statItem}>
-              <View style={styles.statIcon}>
-                <Ionicons name="calendar-outline" size={20} color="#4A9D8E" />
+            <View style={styles.statContainer}>
+              <Ionicons name="cube-outline" size={32} color="#4A9D8E" />
+              <View style={styles.statTextGroup}>
+                <Text style={styles.statLabel}>Assets</Text>
+                <Text style={styles.statValue}>{investments.length}</Text>
               </View>
-              <Text style={styles.statLabel}>Invested</Text>
-              <Text style={styles.statValue}>${(portfolioData?.total_invested ?? 0).toFixed(0)}</Text>
             </View>
           </View>
         </View>
@@ -699,19 +724,36 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   accountSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#4A9D8E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
   },
   accountLabel: {
-    fontSize: 14,
-    color: '#4A9D8E',
+    fontSize: 18,
+    color: '#3E7B77',
     fontWeight: '600',
-    marginBottom: 4,
+    fontFamily: 'Futura',
+    marginBottom: 0,
   },
   balance: {
-    fontSize: 40,
-    fontWeight: 'bold',
+    fontSize: 52,
+    fontWeight: '700',
     color: '#333',
+    fontFamily: 'CircularStd',
+    letterSpacing: -1.5,
   },
   leftoverCoins: {
     fontSize: 16,
@@ -758,40 +800,52 @@ const styles = StyleSheet.create({
   periodTextActive: {
     color: '#fff',
   },
-  statsGrid: {
-    gap: 16,
-    justifyContent: 'space-between',
+  statsColumn: {
+    justifyContent: 'center',
+    gap: 24,
+    paddingRight: 8,
   },
-  statItem: {
+  statContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statTextGroup: {
     alignItems: 'flex-start',
-    gap: 2,
   },
   statIcon: {
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#555',
+    fontFamily: 'Futura',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#4A9D8E',
+    fontFamily: 'CircularStd',
+    marginTop: -2,
+    letterSpacing: -0.5,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 16,
+    backgroundColor: '#EBEBEB',
+    marginHorizontal: 24,
+    marginTop: 24,
+    marginBottom: 24,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 24,
     gap: 12,
   },
   searchIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#3E7B77',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -799,9 +853,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#333',
+    fontStyle: 'italic',
   },
   portfolioSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   portfolioHeader: {
     flexDirection: 'row',
@@ -812,7 +867,8 @@ const styles = StyleSheet.create({
   portfolioTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4A9D8E',
+    color: '#3E7B77',
+    fontFamily: 'CircularStd',
   },
   sortButton: {
     flexDirection: 'row',
@@ -833,97 +889,118 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#F9F8F6',
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     padding: 24,
     paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
     color: '#333',
+    fontFamily: 'CircularStd',
+    marginBottom: 10,
+    textAlign: 'center',
+    marginTop: 8,
   },
   modalSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#3E7B77',
+    fontFamily: 'Futura',
+    marginBottom: 12,
   },
   tradeInfoBox: {
-    backgroundColor: '#F8F9FA',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 24,
-    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tradeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   tradeLabel: {
     fontSize: 14,
     color: '#666',
+    fontWeight: '500',
+    fontFamily: 'Futura',
   },
   tradeValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
     color: '#333',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 12,
+    fontFamily: 'CircularStd',
   },
   sectionHeading: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 12,
+    color: '#999',
+    textTransform: 'uppercase',
     marginBottom: 8,
+    marginTop: 4,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: 16,
+    marginBottom: 16,
   },
   statChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 10,
+    backgroundColor: '#F5F5F3',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    gap: 4,
+    gap: 6,
   },
   statChipText: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+    fontFamily: 'Futura',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#EBEBEB',
+    marginVertical: 12,
   },
   inputSection: {
     marginBottom: 24,
+    marginTop: 12,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    color: '#666',
+    fontFamily: 'Futura',
     marginBottom: 8,
+    marginLeft: 8,
   },
   sharesInput: {
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 20,
-    fontWeight: '600',
+    backgroundColor: '#EBEBEB',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    fontSize: 18,
     color: '#333',
-    marginBottom: 8,
+    fontFamily: 'Futura',
+    fontWeight: '600',
   },
   estimatedPayout: {
     fontSize: 14,
@@ -931,28 +1008,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   confirmSellButton: {
-    backgroundColor: '#F44336',
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: '#E74C3C',
     alignItems: 'center',
   },
   confirmInvestButton: {
-    backgroundColor: '#4A9D8E',
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: '#3E7B77',
     alignItems: 'center',
+    marginTop: 10,
   },
   disabledButton: {
-    backgroundColor: '#FFCDD2',
+    opacity: 0.5,
   },
   confirmSellText: {
-    color: '#fff',
-    fontSize: 17,
+    fontSize: 18,
+    color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'Futura',
   },
   topLoadingBarContainer: {
     position: 'absolute',
-    top: 50, // Slightly below safe area top
+    top: 50,
     left: 0,
     right: 0,
     height: 3,
@@ -961,7 +1040,7 @@ const styles = StyleSheet.create({
   },
   topLoadingBar: {
     height: '100%',
-    width: '40%', // Animated width or just a pulse
+    width: '40%',
     backgroundColor: '#4A9D8E',
     borderRadius: 3,
   },
